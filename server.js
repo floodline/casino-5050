@@ -3,9 +3,11 @@
   Casino Night For The Neuro 50/50 raffle server.
   Node 22+, no dependencies. SQLite via node:sqlite, one process, one file.
 
-  Sellers open   /s/<SELLER_TOKEN>            (the shared seller link)
-  API            /api/*  with header x-raffle-token: <SELLER_TOKEN>
-  Admin actions  draw, reset, winner email need the ADMIN_PIN in the body.
+  Sellers open   /              enter the seller PIN (or the admin PIN) -> signed-in cookie -> /app
+  Seller page    /app           needs the cookie
+  Legacy link    /s/<SELLER_TOKEN>   sets the cookie and redirects to /app
+  API            /api/*         cookie, or header x-raffle-token: <SELLER_TOKEN>
+  Admin actions  draw, winner email, reset, change seller PIN need ADMIN_PIN in the body.
 */
 const http = require('node:http');
 const fs = require('node:fs');
@@ -31,6 +33,8 @@ const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER || (MAIL_DRY_RUN ? 'dry' : (GH
 const GHL_BASE = 'https://services.leadconnectorhq.com';
 const PACKAGES = [{ t: 1, p: 5 }, { t: 3, p: 10 }, { t: 10, p: 20 }, { t: 40, p: 50 }, { t: 100, p: 100 }];
 const MAX_QTY = 10;
+const SESSION_DAYS = 30;
+const COOKIE = 'raffle_s';
 
 /* ---------------- database ---------------- */
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -81,6 +85,7 @@ if (getS('version') === undefined) setS('version', 1);
 
 const SELLER_TOKEN = process.env.SELLER_TOKEN || getOrCreate('seller_token', () => crypto.randomBytes(18).toString('base64url'));
 const ADMIN_PIN = process.env.ADMIN_PIN || getOrCreate('admin_pin', () => String(crypto.randomInt(100000, 1000000)));
+const SESSION_SECRET = getOrCreate('session_secret', () => crypto.randomBytes(32).toString('hex'));
 
 /* ---------------- helpers ---------------- */
 const log = (msg, extra) => console.log(JSON.stringify(Object.assign({ t: nowIso(), msg }, extra || {})));
@@ -91,6 +96,50 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 class HttpError extends Error { constructor(status, code, message) { super(message); this.status = status; this.code = code; } }
 const randomInt = n => crypto.randomInt(0, n); // crypto-secure, unbiased
+
+/* ---------------- seller PIN + sessions ---------------- */
+const sellerPinHash = pin => crypto.createHmac('sha256', SESSION_SECRET).update('seller:' + pin).digest('hex');
+if (getS('seller_pin_hash') === undefined) {
+  const seed = process.env.SELLER_PIN || String(crypto.randomInt(1000, 10000));
+  setS('seller_pin_hash', sellerPinHash(seed)); setS('seller_pin_gen', '1');
+  log('seller PIN initialised', { pin: process.env.SELLER_PIN ? '(from SELLER_PIN env)' : ('generated: ' + seed + ' (change it in Settings)') });
+}
+const sign = payload => crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+function issueSession() { const payload = (Date.now() + SESSION_DAYS * 864e5) + '.' + getS('seller_pin_gen', '1'); return payload + '.' + sign(payload); }
+function validSession(cookieHeader) {
+  const m = new RegExp('(?:^|;\\s*)' + COOKIE + '=([^;]+)').exec(cookieHeader || ''); if (!m) return false;
+  const parts = m[1].split('.'); if (parts.length !== 3) return false;
+  const payload = parts[0] + '.' + parts[1];
+  if (!safeEq(sign(payload), parts[2])) return false;
+  if (!(Number(parts[0]) > Date.now())) return false;
+  return parts[1] === getS('seller_pin_gen', '1');
+}
+function cookieFor(req, value, maxAge) {
+  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') || PUBLIC_URL.startsWith('https');
+  return COOKIE + '=' + value + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + (secure ? '; Secure' : '');
+}
+function gateCheck(ip, pin) {
+  pin = String(pin || '').trim();
+  const f = gateFails.get(ip);
+  if (f && f.n >= 8 && f.until > Date.now()) throw new HttpError(429, 'locked', 'Too many wrong PINs. Try again in 10 minutes.');
+  const ok = pin && (safeEq(sellerPinHash(pin), getS('seller_pin_hash')) || safeEq(pin, ADMIN_PIN));
+  if (!ok) {
+    const g = f && f.until > Date.now() ? f : { n: 0 };
+    g.n++; g.until = Date.now() + 10 * 60 * 1000; gateFails.set(ip, g);
+    throw new HttpError(401, 'badpin', 'That PIN isn’t right.');
+  }
+  gateFails.delete(ip);
+}
+function changeSellerPin(ip, adminPin, newPin) {
+  checkPin(ip, adminPin);
+  newPin = String(newPin || '').trim();
+  if (!/^\d{4,8}$/.test(newPin)) throw new HttpError(400, 'badnewpin', 'The seller PIN must be 4 to 8 digits.');
+  if (safeEq(newPin, ADMIN_PIN)) throw new HttpError(400, 'samepin', 'Choose a seller PIN that is different from the admin PIN.');
+  setS('seller_pin_hash', sellerPinHash(newPin));
+  setS('seller_pin_gen', String(Number(getS('seller_pin_gen', '1')) + 1)); // signs every phone out
+  bump();
+  log('seller PIN changed', { ip });
+}
 
 function readState() {
   const draw = getS('draw');
@@ -230,6 +279,7 @@ function limited(key, max, windowMs) {
 }
 setInterval(() => { const now = Date.now(); for (const [k, b] of buckets) if (b.reset < now) buckets.delete(k); }, 60000).unref();
 const pinFails = new Map();
+const gateFails = new Map();
 function checkPin(ip, pin) {
   const f = pinFails.get(ip);
   if (f && f.n >= 8 && f.until > Date.now()) throw new HttpError(429, 'locked', 'Too many wrong PINs. Try again in 10 minutes.');
@@ -336,16 +386,39 @@ function csv() {
   return lines.join('\r\n');
 }
 
-/* ---------------- http ---------------- */
+/* ---------------- pages ---------------- */
 const APP_HTML = fs.readFileSync(path.join(__dirname, 'app.html'), 'utf8');
-const LANDING = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(EVENT_NAME) + ' 50/50</title><body style="margin:0;background:#0c2d23;color:#f3ecd8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:grid;place-items:center;min-height:100vh;text-align:center;padding:24px"><div><div style="letter-spacing:.18em;text-transform:uppercase;color:#d8b35a;font-size:12px;font-weight:600">50/50 Raffle</div><h1 style="font-size:28px;margin:8px 0 12px">' + esc(EVENT_NAME) + '</h1><p style="color:#a9bbae;max-width:420px;margin:0 auto">Sellers: open the link you were given. Buyers: your ticket numbers are in your confirmation email.</p></div></body>';
-const json = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+function gatePage(error) {
+  const parts = EVENT_NAME.split(/\s+for\s+/i);
+  const title = parts.length === 2 ? esc(parts[0]) + '<br>For ' + esc(parts[1]) : esc(EVENT_NAME);
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>' + esc(EVENT_NAME) + ' 50/50</title>' +
+    '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap">' +
+    '<style>:root{color-scheme:dark}html{background:#071d16}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0c2d23 radial-gradient(120% 70% at 50% 0%,#134634 0%,#0c2d23 55%,#071d16 100%) no-repeat;color:#f3ecd8;font:16px/1.45 "IBM Plex Sans","Helvetica Neue",Arial,sans-serif;padding:24px 16px;box-sizing:border-box}' +
+    '.box{width:100%;max-width:400px;background:#11382b;border:1px solid rgba(243,236,216,.12);border-radius:14px;padding:26px 20px;box-shadow:0 10px 30px rgba(0,0,0,.32)}' +
+    '.eyebrow{font:600 12px/1 inherit;letter-spacing:.18em;text-transform:uppercase;color:#d8b35a}h1{font:800 clamp(32px,9vw,46px)/.95 "Big Shoulders Display","Oswald","Arial Narrow",Impact,sans-serif;text-transform:uppercase;margin:6px 0 18px;letter-spacing:.01em}' +
+    'label{display:block;font-size:13px;color:#a9bbae;margin-bottom:6px;font-weight:500}input{width:100%;box-sizing:border-box;min-height:56px;background:#17462f;color:#f3ecd8;border:1px solid rgba(243,236,216,.26);border-radius:10px;padding:10px 14px;font:600 26px/1 "IBM Plex Sans",Arial,sans-serif;letter-spacing:.35em;text-align:center}input:focus-visible{outline:2px solid #f1d27f;outline-offset:2px}' +
+    'button{width:100%;min-height:50px;margin-top:14px;border:0;border-radius:10px;background:linear-gradient(180deg,#f1d27f,#d8b35a);color:#241a05;font:600 16px/1 "IBM Plex Sans",Arial,sans-serif;cursor:pointer}' +
+    '.err{color:#e8705c;font-size:14px;margin:10px 0 0}.fine{color:#a9bbae;font-size:12px;margin:16px 0 0;text-align:center}</style></head><body>' +
+    '<form class="box" method="post" action="/login" autocomplete="off"><div class="eyebrow">50/50 Raffle</div><h1>' + title + '</h1>' +
+    '<label for="pin">Seller PIN</label><input id="pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autofocus required>' +
+    '<button type="submit">Open the raffle</button>' + (error ? '<p class="err">' + esc(error) + '</p>' : '') +
+    '<p class="fine">Sellers only. ' + esc(EVENT_DATE) + (LICENCE_TEXT ? ' &middot; ' + esc(LICENCE_TEXT) : '') + '</p></form></body></html>';
+}
+
+/* ---------------- http ---------------- */
+const json = (res, status, body, extra) => { res.writeHead(status, Object.assign({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, extra || {})); res.end(JSON.stringify(body)); };
 const html = (res, status, body, extra) => { res.writeHead(status, Object.assign({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'no-referrer' }, extra || {})); res.end(body); };
+const redirect = (res, to, extra) => { res.writeHead(303, Object.assign({ Location: to, 'Cache-Control': 'no-store' }, extra || {})); res.end(); };
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = ''; let n = 0;
     req.on('data', c => { n += c.length; if (n > 16384) { reject(new HttpError(413, 'big', 'Request too large.')); req.destroy(); } else data += c; });
-    req.on('end', () => { if (!data) return resolve({}); try { resolve(JSON.parse(data)); } catch (e) { reject(new HttpError(400, 'badjson', 'Bad JSON.')); } });
+    req.on('end', () => {
+      if (!data) return resolve({});
+      const ct = String(req.headers['content-type'] || '');
+      if (ct.includes('application/x-www-form-urlencoded')) return resolve(Object.fromEntries(new URLSearchParams(data)));
+      try { resolve(JSON.parse(data)); } catch (e) { reject(new HttpError(400, 'badjson', 'Bad JSON.')); }
+    });
     req.on('error', reject);
   });
 }
@@ -357,16 +430,31 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
   try {
     if (p === '/healthz') return json(res, 200, { ok: true, version: Number(getS('version', '1')), provider: EMAIL_PROVIDER });
-    if (p === '/' || p === '') return html(res, 200, LANDING);
+    const signedIn = validSession(req.headers.cookie);
+    if (p === '/' || p === '') { if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'method', 'Method not allowed.'); return signedIn ? redirect(res, '/app') : html(res, 200, gatePage('')); }
+    if (p === '/login') {
+      if (req.method !== 'POST') return redirect(res, '/');
+      if (limited('gate:' + ip, 30, 60000)) return html(res, 429, gatePage('Too many attempts. Wait a minute.'));
+      const body = await readBody(req);
+      try { gateCheck(ip, body.pin); } catch (e) { if (e instanceof HttpError) return html(res, e.status, gatePage(e.message)); throw e; }
+      return redirect(res, '/app', { 'Set-Cookie': cookieFor(req, issueSession(), SESSION_DAYS * 86400) });
+    }
+    if (p === '/logout') return redirect(res, '/', { 'Set-Cookie': cookieFor(req, '', 0) });
+    if (p === '/app' || p === '/app/') return signedIn ? html(res, 200, APP_HTML) : redirect(res, '/');
+    if (p === '/app/export.csv') {
+      if (!signedIn) return redirect(res, '/');
+      res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="casino-night-5050-sales-' + nowIso().slice(0, 10) + '.csv"', 'Cache-Control': 'no-store' });
+      return res.end('﻿' + csv());
+    }
     let m;
     if ((m = p.match(/^\/s\/([A-Za-z0-9_-]+)(\/export\.csv)?\/?$/))) {
-      if (!safeEq(m[1], SELLER_TOKEN)) { if (limited('nf:' + ip, 30, 60000)) return html(res, 429, 'Slow down.'); return html(res, 404, LANDING); }
+      if (!safeEq(m[1], SELLER_TOKEN)) { if (limited('nf:' + ip, 30, 60000)) return html(res, 429, 'Slow down.'); return html(res, 404, gatePage('')); }
       if (m[2]) { res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="casino-night-5050-sales-' + nowIso().slice(0, 10) + '.csv"', 'Cache-Control': 'no-store' }); return res.end('﻿' + csv()); }
-      return html(res, 200, APP_HTML);
+      return redirect(res, '/app', { 'Set-Cookie': cookieFor(req, issueSession(), SESSION_DAYS * 86400) });
     }
     if (p.startsWith('/api/')) {
       const token = req.headers['x-raffle-token'] || url.searchParams.get('token');
-      if (!safeEq(token, SELLER_TOKEN)) { if (limited('auth:' + ip, 30, 60000)) throw new HttpError(429, 'slow', 'Slow down.'); throw new HttpError(401, 'unauthorized', 'This link is not valid.'); }
+      if (!signedIn && !safeEq(token, SELLER_TOKEN)) { if (limited('auth:' + ip, 30, 60000)) throw new HttpError(429, 'slow', 'Slow down.'); throw new HttpError(401, 'unauthorized', 'Your sign-in has expired. Enter the PIN again.'); }
       if (limited('api:' + ip, 240, 60000)) throw new HttpError(429, 'slow', 'Too many requests. Wait a moment.');
       if (req.method === 'GET' && p === '/api/state') {
         const since = Number(url.searchParams.get('since') || 0);
@@ -382,12 +470,14 @@ const server = http.createServer(async (req, res) => {
         if (m[2] === 'email') return json(res, 200, { sale: changeEmail(m[1], body.email), snapshot: snapshot() });
         resend(m[1]); return json(res, 200, { ok: true, snapshot: snapshot() });
       }
-      if (p === '/api/draw') { if (limited('pin:' + ip, 20, 60000)) throw new HttpError(429, 'slow', 'Too many attempts.'); const draw = drawWinner(ip, body.pin); return json(res, 200, { draw, snapshot: snapshot() }); }
-      if (p === '/api/winner-email') { if (limited('pin:' + ip, 20, 60000)) throw new HttpError(429, 'slow', 'Too many attempts.'); emailWinner(ip, body.pin); return json(res, 200, { ok: true, snapshot: snapshot() }); }
-      if (p === '/api/reset') { if (limited('pin:' + ip, 20, 60000)) throw new HttpError(429, 'slow', 'Too many attempts.'); resetRaffle(ip, body.pin, body.word); return json(res, 200, { ok: true, snapshot: snapshot() }); }
+      const pinGuard = () => { if (limited('pin:' + ip, 20, 60000)) throw new HttpError(429, 'slow', 'Too many attempts.'); };
+      if (p === '/api/draw') { pinGuard(); const draw = drawWinner(ip, body.pin); return json(res, 200, { draw, snapshot: snapshot() }); }
+      if (p === '/api/winner-email') { pinGuard(); emailWinner(ip, body.pin); return json(res, 200, { ok: true, snapshot: snapshot() }); }
+      if (p === '/api/reset') { pinGuard(); resetRaffle(ip, body.pin, body.word); return json(res, 200, { ok: true, snapshot: snapshot() }); }
+      if (p === '/api/seller-pin') { pinGuard(); changeSellerPin(ip, body.pin, body.newPin); return json(res, 200, { ok: true, snapshot: snapshot() }, { 'Set-Cookie': cookieFor(req, issueSession(), SESSION_DAYS * 86400) }); }
       throw new HttpError(404, 'notfound', 'Not found.');
     }
-    return html(res, 404, LANDING);
+    return html(res, 404, gatePage(''));
   } catch (e) {
     if (e instanceof HttpError) return json(res, e.status, { error: { code: e.code, message: e.message } });
     log('server error', { error: e.message, stack: String(e.stack).split('\n').slice(0, 3).join(' | '), path: p });
@@ -396,7 +486,7 @@ const server = http.createServer(async (req, res) => {
 });
 server.listen(PORT, HOST, () => {
   const base = PUBLIC_URL || ('http://localhost:' + PORT);
-  log('raffle server up', { port: PORT, db: DB_PATH, emailProvider: EMAIL_PROVIDER, sellerLink: base + '/s/' + SELLER_TOKEN, adminPin: process.env.ADMIN_PIN ? '(from env)' : ('generated: ' + ADMIN_PIN + ' (set ADMIN_PIN to choose your own)') });
+  log('raffle server up', { port: PORT, db: DB_PATH, emailProvider: EMAIL_PROVIDER, entry: base + '/', legacyLink: base + '/s/' + SELLER_TOKEN, adminPin: process.env.ADMIN_PIN ? '(from env)' : ('generated: ' + ADMIN_PIN + ' (set ADMIN_PIN to choose your own)') });
   setTimeout(processMails, 2000);
 });
 process.on('SIGTERM', () => { server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); });

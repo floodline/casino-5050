@@ -167,7 +167,7 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
 
   <div class="full" id="notices" hidden>
     <div class="notice bad" id="conn-banner" hidden><b>Can't reach the raffle server.</b> Check the connection. The page keeps retrying on its own.</div>
-    <div class="notice bad" id="token-banner" hidden><b>This link isn't valid.</b> Ask the organizer for the current seller link.</div>
+    <div class="notice bad" id="token-banner" hidden><b>Your sign-in has expired.</b> Taking you back to the PIN screen…</div>
     <div class="notice" id="mail-banner" hidden><b>Email sending is off on this server.</b> Buyers won't get a confirmation until it's configured.</div>
   </div>
 
@@ -233,7 +233,7 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
       <h2>Sales <span class="sub" id="ledger-count"></span></h2>
       <div class="ledger-tools">
         <input id="ledger-filter" type="search" placeholder="Find by email or ticket #" autocomplete="off">
-        <a class="btn btn-ghost btn-sm" id="export-btn" href="export.csv" download>Export CSV</a>
+        <a class="btn btn-ghost btn-sm" id="export-btn" href="/app/export.csv" download>Export CSV</a>
       </div>
       <div class="empty" id="ledger-empty">Connecting to the raffle server…</div>
       <ul class="ledger" id="ledger-list"></ul>
@@ -257,10 +257,20 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
     <section class="card hide-on-stage" id="settings" hidden>
       <h2>Settings</h2>
       <div class="kv"><span class="k">Seller name on this phone</span><span class="v"><input id="seller-name" type="text" autocomplete="off" placeholder="Optional, e.g. Marie" style="min-height:36px;font-size:14px"></span></div>
-      <div class="kv"><span class="k">Seller link</span><span class="v"><button class="linkbtn" id="copy-link" type="button">Copy this link</button></span></div>
-      <div class="kv"><span class="k">Admin PIN</span><span class="v">Set on the server (ADMIN_PIN). Needed to draw, email the winner, or reset.</span></div>
+      <div class="kv"><span class="k">Seller sign-in</span><span class="v">Open <span id="entry-url"></span> and enter the seller PIN. <button class="linkbtn" id="copy-link" type="button">Copy address</button></span></div>
+      <div class="kv"><span class="k">Admin PIN</span><span class="v">Set on the server (ADMIN_PIN). Needed to draw, email the winner, reset, or change the seller PIN.</span></div>
       <div class="kv"><span class="k">Confirmation emails</span><span class="v" id="mail-provider">—</span></div>
       <div class="kv"><span class="k">Ticket numbering</span><span class="v" id="num-status">Sequential from #1</span></div>
+      <div class="kv"><span class="k">This phone</span><span class="v"><button class="linkbtn" id="signout-btn" type="button">Sign out</button></span></div>
+      <hr class="rule">
+      <h3 style="margin:0 0 8px;font:700 17px/1.1 var(--display);text-transform:uppercase;letter-spacing:.06em">Change the seller PIN</h3>
+      <p class="lede" style="margin-bottom:10px">Every phone is signed out and has to enter the new PIN. Your phone stays signed in.</p>
+      <div class="row2" style="grid-template-columns:1fr 1fr">
+        <div class="field"><label for="sp-new">New seller PIN (4 to 8 digits)</label><input id="sp-new" type="password" inputmode="numeric" autocomplete="off" maxlength="8"></div>
+        <div class="field"><label for="sp-admin">Admin PIN</label><input id="sp-admin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></div>
+      </div>
+      <button class="btn btn-sm" id="sp-save" type="button">Save seller PIN</button>
+      <div class="msg" id="sp-msg" hidden></div>
       <hr class="rule">
       <div class="danger-zone">
         <h3>Reset the raffle</h3>
@@ -319,12 +329,13 @@ function copyText(text){
 }
 function errText(e){return (e&&e.message)||'Something went wrong. Try again.'}
 function api(path,body){
-  var opt={method:body?'POST':'GET',headers:{'x-raffle-token':TOKEN}};
+  var opt={method:body?'POST':'GET',headers:{},credentials:'same-origin'};
+  if(TOKEN)opt.headers['x-raffle-token']=TOKEN;
   if(body){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body)}
   return fetch(path,opt).then(function(r){
     return r.text().then(function(t){
       var j={};try{j=t?JSON.parse(t):{}}catch(e){}
-      if(r.status===401){S.unauthorized=true;renderNotices()}
+      if(r.status===401&&!S.unauthorized){S.unauthorized=true;renderNotices();setTimeout(function(){location.href='/'},1800)}
       if(!r.ok)throw (j&&j.error)||{code:'http'+r.status,message:'Server error ('+r.status+').'};
       return j;
     });
@@ -395,7 +406,7 @@ function setSaleBtn(label){
   if(label){b.textContent=label;b.disabled=true;return}
   var ready=S.loaded&&!isDrawn()&&!S.unauthorized;
   b.disabled=!ready;
-  b.textContent=S.unauthorized?'Link not valid':(!S.loaded?'Connecting…':(isDrawn()?'Sales closed':'Log sale'));
+  b.textContent=S.unauthorized?'Signed out':(!S.loaded?'Connecting…':(isDrawn()?'Sales closed':'Log sale'));
 }
 function renderForm(){
   renderPackages();updateSummary();
@@ -427,7 +438,7 @@ function mailChip(s){
 }
 function renderLedger(){
   var list=$('ledger-list'),empty=$('ledger-empty'),count=$('ledger-count');
-  if(!S.loaded){empty.hidden=false;empty.textContent=S.unauthorized?'This link isn’t valid.':'Connecting to the raffle server…';list.textContent='';count.textContent='';return}
+  if(!S.loaded){empty.hidden=false;empty.textContent=S.unauthorized?'Your sign-in has expired.':'Connecting to the raffle server…';list.textContent='';count.textContent='';return}
   var all=S.sales.slice().sort(function(a,b){return (b.from||0)-(a.from||0)});
   var voided=all.filter(function(s){return s.voided}).length;
   var t=totals();
@@ -591,7 +602,16 @@ $('w-email-btn').onclick=function(){
     onConfirm:function(pin){if(!pin)throw{message:'Enter the admin PIN.'};return api('/api/winner-email',{pin:pin}).then(function(j){applySnapshot(j.snapshot);toast('Winner email queued');setTimeout(poll,1200)})}});
 };
 $('settings-btn').onclick=function(){var s=$('settings');s.hidden=!s.hidden;if(!s.hidden&&s.scrollIntoView)s.scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'})};
-$('copy-link').onclick=function(){copyText(location.origin+'/s/'+TOKEN)};
+$('copy-link').onclick=function(){copyText(location.origin+'/')};
+$('entry-url').textContent=location.host;
+$('signout-btn').onclick=function(){var f=document.createElement('form');f.method='post';f.action='/logout';document.body.appendChild(f);f.submit()};
+$('sp-save').onclick=function(){
+  var m=$('sp-msg');m.hidden=false;m.className='msg';
+  var np=$('sp-new').value.trim();
+  if(!/^\d{4,8}$/.test(np)){m.textContent='The seller PIN must be 4 to 8 digits.';return}
+  m.textContent='Saving…';
+  api('/api/seller-pin',{pin:$('sp-admin').value.trim(),newPin:np}).then(function(j){applySnapshot(j.snapshot);m.className='msg good';m.textContent='Seller PIN changed. Other phones will need the new PIN.';$('sp-new').value='';$('sp-admin').value=''}).catch(function(e){m.textContent=errText(e)});
+};
 $('seller-name').addEventListener('input',function(){try{localStorage.setItem('sellerName',this.value.slice(0,60))}catch(e){}});
 try{$('seller-name').value=sellerName()}catch(e){}
 $('reset-btn').onclick=function(){
@@ -601,7 +621,7 @@ $('reset-btn').onclick=function(){
   api('/api/reset',{pin:$('reset-pin').value.trim(),word:'RESET'}).then(function(j){S.lastReceipt=null;S.revealedAt=null;renderReceipt();applySnapshot(j.snapshot);m.className='msg good';m.textContent='Raffle reset. Ticket numbers start again at #1.';$('reset-pin').value='';$('reset-word').value=''}).catch(function(e){m.textContent=errText(e)});
 };
 $('stage-btn').onclick=function(){S.stage=!S.stage;try{localStorage.setItem('stage',S.stage?'1':'0')}catch(e){}applyStage()};
-$('export-btn').href='/s/'+TOKEN+'/export.csv';
+$('export-btn').href=TOKEN?('/s/'+TOKEN+'/export.csv'):'/app/export.csv';
 updateSummary();
 try{if(location.hash==='#stage'||localStorage.getItem('stage')==='1')S.stage=true}catch(e){}
 applyStage();

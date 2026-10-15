@@ -12,10 +12,12 @@ const { webcrypto } = require('node:crypto');
 const PORT = 3900 + Math.floor(Math.random() * 90);
 const BASE = 'http://127.0.0.1:' + PORT;
 const TOKEN = 'testtoken';
-const PIN = '2468';
+const PIN = '2468';          // admin
+const SELLER_PIN = '1016';   // gate
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'raffle-test-'));
-const env = Object.assign({}, process.env, { PORT: String(PORT), HOST: '127.0.0.1', DB_PATH: path.join(dir, 'raffle.db'), MAIL_DRY_RUN: '1', ADMIN_PIN: PIN, SELLER_TOKEN: TOKEN, PUBLIC_URL: BASE, LICENCE_TEXT: 'Licence RACJ test' });
-const proc = spawn(process.execPath, ['--no-warnings=ExperimentalWarning', path.join(__dirname, '..', 'server.js')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+const env = Object.assign({}, process.env, { PORT: String(PORT), HOST: '127.0.0.1', DB_PATH: path.join(dir, 'raffle.db'), MAIL_DRY_RUN: '1', ADMIN_PIN: PIN, SELLER_PIN, SELLER_TOKEN: TOKEN, PUBLIC_URL: BASE, LICENCE_TEXT: 'Licence RACJ test' });
+const serverArgs = ['--no-warnings=ExperimentalWarning', path.join(__dirname, '..', 'server.js')];
+const proc = spawn(process.execPath, serverArgs, { env, stdio: ['ignore', 'pipe', 'pipe'] });
 let serverLog = '';
 proc.stdout.on('data', d => { serverLog += d; });
 proc.stderr.on('data', d => { serverLog += d; process.stderr.write(d); });
@@ -23,18 +25,31 @@ proc.stderr.on('data', d => { serverLog += d; process.stderr.write(d); });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failures = 0;
 function check(cond, msg) { if (cond) console.log('  ok  ' + msg); else { failures++; console.log('  FAIL ' + msg); } }
-async function api(p, body, token) {
-  const r = await fetch(BASE + p, { method: body ? 'POST' : 'GET', headers: Object.assign({ 'x-raffle-token': token === undefined ? TOKEN : token }, body ? { 'Content-Type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined });
+let COOKIE = '';
+async function api(p, body, opts) {
+  opts = opts || {};
+  const headers = {};
+  if (opts.token !== undefined) { if (opts.token) headers['x-raffle-token'] = opts.token; }
+  else if (opts.cookie !== undefined) { if (opts.cookie) headers.cookie = opts.cookie; }
+  else headers.cookie = COOKIE;
+  if (body) headers['Content-Type'] = 'application/json';
+  const r = await fetch(BASE + p, { method: body ? 'POST' : 'GET', headers, body: body ? JSON.stringify(body) : undefined, redirect: 'manual' });
   let j = null; try { j = await r.json(); } catch (e) {}
-  return { status: r.status, body: j };
+  return { status: r.status, body: j, setCookie: r.headers.get('set-cookie') || '' };
 }
-async function boot() {
-  const html = await (await fetch(BASE + '/s/' + TOKEN)).text();
+async function login(pin) {
+  const r = await fetch(BASE + '/login', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'pin=' + encodeURIComponent(pin), redirect: 'manual' });
+  const sc = r.headers.get('set-cookie') || '';
+  return { status: r.status, location: r.headers.get('location'), cookie: sc.split(';')[0], text: r.status === 303 ? '' : await r.text() };
+}
+async function boot(cookie) {
+  cookie = cookie || COOKIE;
+  const html = await (await fetch(BASE + '/app', { headers: { cookie } })).text();
   const dom = new JSDOM(html, {
-    url: BASE + '/s/' + TOKEN, runScripts: 'dangerously', pretendToBeVisual: true,
+    url: BASE + '/app', runScripts: 'dangerously', pretendToBeVisual: true,
     beforeParse(window) {
       Object.defineProperty(window, 'crypto', { value: webcrypto });
-      window.fetch = (u, o) => fetch(new URL(u, BASE), o);
+      window.fetch = (u, o) => fetch(new URL(u, BASE), Object.assign({}, o, { headers: Object.assign({}, (o && o.headers) || {}, { cookie }) }));
       window.HTMLElement.prototype.scrollIntoView = function () {};
     },
   });
@@ -50,15 +65,27 @@ const salesOf = async () => (await api('/api/state')).body.sales;
   for (let i = 0; i < 50; i++) { try { if ((await fetch(BASE + '/healthz')).ok) break; } catch (e) {} await sleep(100); }
   console.log('server up on ' + BASE);
 
-  console.log('\n1. access control');
-  check((await api('/api/state', null, 'wrong')).status === 401, 'wrong token -> 401');
-  check((await api('/api/state', null, '')).status === 401, 'missing token -> 401');
-  const landing = await fetch(BASE + '/s/wrongtoken'); check(landing.status === 404 && (await landing.text()).includes('Sellers: open the link'), 'wrong seller link -> 404 landing page, app not served');
-  const okPage = await fetch(BASE + '/s/' + TOKEN); check(okPage.status === 200 && (await okPage.text()).includes('id="sale-form"'), 'right seller link serves the app');
+  console.log('\n1. PIN gate and sessions');
+  const gate = await fetch(BASE + '/'); const gateText = await gate.text();
+  check(gate.status === 200 && gateText.includes('Seller PIN') && gateText.includes('action="/login"'), 'bare domain shows the PIN screen');
+  const appNoCookie = await fetch(BASE + '/app', { redirect: 'manual' });
+  check(appNoCookie.status === 303 && appNoCookie.headers.get('location') === '/', '/app without a session redirects to the PIN screen');
+  const bad = await login('0000'); check(bad.status === 401 && bad.text.includes('isn’t right') && !bad.cookie, 'wrong PIN: error on the PIN screen, no cookie');
+  const asAdmin = await login(PIN); check(asAdmin.status === 303 && asAdmin.location === '/app' && asAdmin.cookie.startsWith('raffle_s='), 'admin PIN also opens the gate');
+  const asSeller = await login(SELLER_PIN); check(asSeller.status === 303 && asSeller.cookie.startsWith('raffle_s='), 'seller PIN opens the gate and sets a cookie');
+  COOKIE = asSeller.cookie;
+  const appOk = await fetch(BASE + '/app', { headers: { cookie: COOKIE } });
+  check(appOk.status === 200 && (await appOk.text()).includes('id="sale-form"'), '/app with the cookie serves the seller page');
+  check((await api('/api/state', null, { cookie: '' })).status === 401, 'API without session -> 401');
+  check((await api('/api/state', null, { cookie: 'raffle_s=1.1.forged' })).status === 401, 'API with forged cookie -> 401');
+  check((await api('/api/state', null, { token: TOKEN })).status === 200, 'API with the legacy token header still works');
+  const legacy = await fetch(BASE + '/s/' + TOKEN, { redirect: 'manual' });
+  check(legacy.status === 303 && legacy.headers.get('location') === '/app' && (legacy.headers.get('set-cookie') || '').startsWith('raffle_s='), 'legacy /s/<token> link signs in and redirects to /app');
+  const legacyBad = await fetch(BASE + '/s/wrongtoken'); check(legacyBad.status === 404 && (await legacyBad.text()).includes('Seller PIN'), 'wrong legacy link -> 404 PIN screen');
   const st0 = await api('/api/state'); check(st0.status === 200 && st0.body.state.status === 'open' && st0.body.state.next === 1 && st0.body.config.emailProvider === 'dry', 'state: open, next #1, dry-run mail');
 
   console.log('\n2. two seller pages boot');
-  const A = await boot(); const B = await boot(); await sleep(700);
+  const A = await boot(); const B = await boot(asAdmin.cookie); await sleep(700);
   check(A.txt('status-pill') === 'Sales open' && B.txt('status-pill') === 'Sales open', 'pills read Sales open');
   check(A.txt('sale-btn') === 'Log sale' && !A.$('sale-btn').disabled, 'Log sale enabled');
   check(A.txt('t-tickets') === '0' && A.txt('t-raised') === '$0', 'tally zero');
@@ -66,11 +93,12 @@ const salesOf = async () => (await api('/api/state')).body.sales;
   check(A.txt('live-text') === 'Live', 'live indicator: ' + A.txt('live-text'));
   check(A.txt('footer').includes('Licence RACJ test'), 'licence text in footer');
   check(A.$('pkg').options.length === 5 && A.$('pkg').options[1].textContent === '3 tickets for $10', 'packages rendered from server config');
+  check(A.$('export-btn').getAttribute('href') === '/app/export.csv' && A.txt('entry-url') === '127.0.0.1:' + PORT, 'export link + sign-in address use the session, not a token');
 
   console.log('\n3. one sale from A');
   submitSale(A, 1, 2, 'jane@example.com'); await sleep(400);
   let sales = await salesOf();
-  check(sales.length === 1 && sales[0].from === 1 && sales[0].to === 6 && sales[0].amount === 20, 'sale #1–#6 $20 stored: ' + JSON.stringify(sales[0] && { from: sales[0].from, to: sales[0].to, amount: sales[0].amount }));
+  check(sales.length === 1 && sales[0].from === 1 && sales[0].to === 6 && sales[0].amount === 20, 'sale #1–#6 $20 stored');
   check(!A.hidden('receipt') && A.txt('r-range') === '#1–#6' && A.txt('r-say').includes('1 to 6') && A.txt('r-say').includes('confirmation email'), 'receipt: ' + A.txt('r-range'));
   check(A.txt('t-tickets') === '6' && A.txt('t-raised') === '$20' && A.txt('t-half') === '$10', 'A tally 6 / $20 / $10');
   check(A.txt('next-ticket') === 'Next ticket #7', 'next ticket label');
@@ -78,7 +106,7 @@ const salesOf = async () => (await api('/api/state')).body.sales;
   await sleep(3000);
   check(B.txt('t-tickets') === '6', 'B sees the sale after polling');
   sales = await salesOf();
-  check(sales[0].mail && sales[0].mail.status === 'sent', 'confirmation mail recorded as sent (dry run): ' + JSON.stringify(sales[0].mail));
+  check(sales[0].mail && sales[0].mail.status === 'sent', 'confirmation mail recorded as sent (dry run)');
   check(A.$('ledger-list').textContent.includes('Emailed'), 'ledger shows Emailed chip');
 
   console.log('\n4. simultaneous sales from A and B, then one more');
@@ -95,8 +123,8 @@ const salesOf = async () => (await api('/api/state')).body.sales;
   console.log('\n5. validation + filter');
   submitSale(A, 0, 1, 'nope'); await sleep(50);
   check(!A.hidden('sale-error') && A.txt('sale-error').includes('valid email'), 'client rejects bad email');
-  const bad = await api('/api/sales', { email: 'x@y.z', pkg: 9, qty: 1 }); check(bad.status === 400 && bad.body.error.code === 'badpkg', 'server rejects bad package');
-  const bad2 = await api('/api/sales', { email: 'x@y.z', pkg: 0, qty: 11 }); check(bad2.status === 400 && bad2.body.error.code === 'badqty', 'server rejects qty 11');
+  const badPkg = await api('/api/sales', { email: 'x@y.z', pkg: 9, qty: 1 }); check(badPkg.status === 400 && badPkg.body.error.code === 'badpkg', 'server rejects bad package');
+  const badQty = await api('/api/sales', { email: 'x@y.z', pkg: 0, qty: 11 }); check(badQty.status === 400 && badQty.body.error.code === 'badqty', 'server rejects qty 11');
   setVal(A, 'ledger-filter', 'jane'); check(A.$('ledger-list').children.length === 1, 'filter by email');
   setVal(A, 'ledger-filter', '#3'); check(A.$('ledger-list').children.length === 1 && A.$('ledger-list').textContent.includes('jane'), 'filter by ticket #');
   setVal(A, 'ledger-filter', '');
@@ -116,7 +144,7 @@ const salesOf = async () => (await api('/api/state')).body.sales;
   rowJ.querySelector('.xbtn.gold').click(); await sleep(500);
   sales = await salesOf();
   const jane = sales.find(s => s.from === 1);
-  check(jane.email === 'jane.doe@example.com' && jane.mail && jane.mail.to === 'jane.doe@example.com' && jane.mail.status === 'sent', 'email fixed and confirmation resent: ' + JSON.stringify(jane.mail));
+  check(jane.email === 'jane.doe@example.com' && jane.mail && jane.mail.to === 'jane.doe@example.com' && jane.mail.status === 'sent', 'email fixed and confirmation resent');
 
   console.log('\n7. draw');
   A.$('draw-btn').click(); await sleep(30);
@@ -125,7 +153,7 @@ const salesOf = async () => (await api('/api/state')).body.sales;
   check(!A.hidden('m-error') && A.txt('m-error').includes('PIN'), 'wrong PIN rejected: ' + A.txt('m-error'));
   A.$('m-pin').value = PIN; A.$('m-confirm').click(); await sleep(400);
   const st = (await api('/api/state')).body.state;
-  check(st.status === 'drawn' && st.draw && typeof st.draw.ticket === 'number', 'drawn: ' + JSON.stringify(st.draw));
+  check(st.status === 'drawn' && st.draw && typeof st.draw.ticket === 'number', 'drawn: ticket #' + (st.draw && st.draw.ticket));
   const liveSales = sales.filter(s => !s.voided);
   const winSale = liveSales.find(s => st.draw.ticket >= s.from && st.draw.ticket <= s.to);
   check(!!winSale && winSale.email === st.draw.email && st.draw.pool === 17 && st.draw.gross === 45, 'winning ticket maps to a live sale, pool 17, gross $45');
@@ -139,12 +167,12 @@ const salesOf = async () => (await api('/api/state')).body.sales;
   console.log('\n8. winner email + export + stage');
   A.$('w-email-btn').click(); await sleep(30); A.$('m-pin').value = PIN; A.$('m-confirm').click(); await sleep(2000);
   const st2 = (await api('/api/state')).body.state;
-  check(st2.winnerMail && st2.winnerMail.status === 'sent' && st2.winnerMail.to === st.draw.email, 'winner email sent (dry): ' + JSON.stringify(st2.winnerMail));
+  check(st2.winnerMail && st2.winnerMail.status === 'sent' && st2.winnerMail.to === st.draw.email, 'winner email sent (dry)');
   check(A.txt('w-mail').startsWith('Winner emailed'), 'winner panel shows emailed: ' + A.txt('w-mail'));
-  const csvRes = await fetch(BASE + '/s/' + TOKEN + '/export.csv'); const csv = await csvRes.text();
+  const csvRes = await fetch(BASE + '/app/export.csv', { headers: { cookie: COOKIE } }); const csv = await csvRes.text();
   const lines = csv.replace(/^﻿/, '').split('\r\n');
   check(csvRes.headers.get('content-disposition').includes('attachment') && lines[0].startsWith('ticket_from,ticket_to') && lines.length >= 7 && lines.some(l => l.includes(',voided,')) && lines.some(l => l.startsWith('winning_ticket,' + st.draw.ticket)), 'CSV export: header, voided row, winner line');
-  check((await fetch(BASE + '/s/nope/export.csv')).status === 404, 'CSV needs the right token');
+  check((await fetch(BASE + '/app/export.csv', { redirect: 'manual' })).status === 303, 'CSV needs a session');
   A.$('stage-btn').click(); await sleep(20);
   check(A.win.document.body.classList.contains('stage') && A.txt('w-email').includes('•••@'), 'stage view masks email: ' + A.txt('w-email'));
   A.$('stage-btn').click();
@@ -156,19 +184,32 @@ const salesOf = async () => (await api('/api/state')).body.sales;
   check(A.hidden('winner') && A.txt('status-pill') === 'Sales open' && A.txt('reset-msg').includes('reset'), 'UI back to open: ' + A.txt('reset-msg'));
   const badReset = await api('/api/reset', { pin: PIN, word: 'nope' }); check(badReset.status === 400, 'reset without RESET word refused');
 
-  console.log('\n10. persistence across restart');
+  console.log('\n10. change the seller PIN from Settings (signs other phones out)');
+  A.$('sp-new').value = '7777'; A.$('sp-admin').value = PIN; A.$('sp-save').click(); await sleep(500);
+  check(A.txt('sp-msg').includes('changed'), 'settings confirms: ' + A.txt('sp-msg'));
+  const badChange = await api('/api/seller-pin', { pin: '0000', newPin: '8888' }, { token: TOKEN }); check(badChange.status === 403, 'seller PIN change needs the admin PIN');
+  check((await login(SELLER_PIN)).status === 401, 'old seller PIN no longer opens the gate');
+  const newLogin = await login('7777'); check(newLogin.status === 303 && newLogin.cookie, 'new seller PIN opens the gate');
+  check((await fetch(BASE + '/app', { headers: { cookie: asAdmin.cookie }, redirect: 'manual' })).status === 303, 'B’s old session is signed out');
+  A.win.close(); B.win.close();
+  COOKIE = newLogin.cookie;
+
+  console.log('\n11. persistence across restart');
   await api('/api/sales', { email: 'persist@example.com', pkg: 2, qty: 1 });
   proc.kill('SIGTERM'); await sleep(500);
-  const proc2 = spawn(process.execPath, ['--no-warnings=ExperimentalWarning', path.join(__dirname, '..', 'server.js')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+  const proc2 = spawn(process.execPath, serverArgs, { env, stdio: ['ignore', 'pipe', 'pipe'] });
   proc2.stderr.on('data', d => process.stderr.write(d));
   for (let i = 0; i < 50; i++) { try { if ((await fetch(BASE + '/healthz')).ok) break; } catch (e) {} await sleep(100); }
-  const st4 = (await api('/api/state')).body;
-  check(st4.sales.length === 1 && st4.sales[0].email === 'persist@example.com' && st4.state.next === 11, 'sale survives restart, next #11');
+  const st4 = await api('/api/state');
+  check(st4.status === 200 && st4.body.sales.length === 1 && st4.body.sales[0].email === 'persist@example.com' && st4.body.state.next === 11, 'sale and session survive a restart, next #11');
+  check((await login('7777')).status === 303 && (await login(SELLER_PIN)).status === 401, 'changed seller PIN survives a restart (SELLER_PIN env only seeds the first boot)');
 
-  console.log('\n11. PIN lockout');
+  console.log('\n12. PIN lockouts');
   let last;
   for (let i = 0; i < 9; i++) last = await api('/api/draw', { pin: '1111' });
-  check(last.status === 429 && last.body.error.code === 'locked', 'locked after repeated wrong PINs: ' + last.status + ' ' + (last.body.error && last.body.error.code));
+  check(last.status === 429 && last.body.error.code === 'locked', 'admin lockout after repeated wrong PINs');
+  let g; for (let i = 0; i < 9; i++) g = await login('0000');
+  check(g.status === 429 && g.text.includes('10 minutes'), 'gate lockout after repeated wrong PINs');
 
   proc2.kill('SIGTERM');
   console.log('\n' + (failures ? failures + ' FAILURE(S)' : 'ALL CHECKS PASSED'));
