@@ -1,0 +1,6 @@
+data
+test
+artifact
+node_modules
+.env
+*.md

@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Casino Night For The Neuro 50/50</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --felt:#0c2d23; --felt-deep:#071d16;
+  --surface:#11382b; --surface-2:#17462f; --surface-3:#1d5238;
+  --line:rgba(243,236,216,.12); --line-strong:rgba(243,236,216,.26);
+  --fg:#f3ecd8; --muted:#a9bbae;
+  --gold:#d8b35a; --gold-bright:#f1d27f; --gold-ink:#241a05;
+  --paper:#f3ecd8; --paper-ink:#1b2a22; --paper-muted:#5d6e64; --paper-rule:rgba(12,45,35,.35);
+  --danger:#e8705c; --danger-ink:#2b0d08; --ok:#7fd39a; --warn:#f0b35a;
+  --display:"Big Shoulders Display","Oswald","Arial Narrow",Impact,sans-serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
+  --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.32);
+  color-scheme:dark;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box}
+html{background:var(--felt-deep)}
+body{margin:0;min-height:100%;background:var(--felt) radial-gradient(120% 70% at 50% 0%,#134634 0%,var(--felt) 55%,var(--felt-deep) 100%) no-repeat;color:var(--fg);font:16px/1.45 var(--body);padding-inline:16px;padding-block:18px 56px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:600px;margin:0 auto;display:grid;gap:16px}
+.col{display:grid;gap:16px;min-width:0;align-content:start}
+@media (min-width:960px){.wrap{max-width:1060px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}.full{grid-column:1/-1}}
+h1,h2,h3{text-wrap:balance}
+.masthead{display:grid;gap:14px}
+.mast-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.eyebrow{font:600 12px/1 var(--body);letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+h1{font:800 clamp(34px,8vw,58px)/.95 var(--display);margin:6px 0 0;letter-spacing:.01em;text-transform:uppercase}
+.mast-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 12px;font:600 12px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line-strong);color:var(--fg)}
+.pill.open{border-color:rgba(127,211,154,.5);color:var(--ok)}
+.pill.drawn{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(127,211,154,.18)}
+.live.stale i{background:var(--warn);box-shadow:0 0 0 3px rgba(240,179,90,.18)}
+.live.off i{background:var(--danger);box-shadow:0 0 0 3px rgba(232,112,92,.18)}
+.tally{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.tally>div{background:var(--surface);padding:12px 14px;min-width:0}
+.tally .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tally .v{font:700 clamp(26px,6.4vw,42px)/1.05 var(--display);font-variant-numeric:tabular-nums;margin-top:4px;overflow-wrap:anywhere}
+.tally .v.gold{color:var(--gold-bright)}
+.tally .s{font-size:12px;color:var(--muted);margin-top:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 16px;box-shadow:var(--shadow);min-width:0}
+.card h2{font:700 21px/1.1 var(--display);text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.card h2 .sub{font:500 13px/1.2 var(--body);letter-spacing:0;text-transform:none;color:var(--muted)}
+.lede{color:var(--muted);font-size:14px;margin:0 0 14px}
+.notice{border-radius:12px;padding:12px 14px;font-size:14px;border:1px solid var(--line-strong);background:rgba(240,179,90,.08);line-height:1.45}
+.notice b{color:var(--fg)}
+.notice.bad{border-color:rgba(232,112,92,.6);background:rgba(232,112,92,.1)}
+.notice.good{border-color:rgba(127,211,154,.5);background:rgba(127,211,154,.08)}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500}
+.field{margin-bottom:14px;min-width:0}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) 116px;gap:10px}
+select,input{width:100%;min-height:48px;background:var(--surface-2);color:var(--fg);border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;font:16px/1.2 var(--body)}
+input::placeholder{color:rgba(169,187,174,.6)}
+select{appearance:none;-webkit-appearance:none;padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23d8b35a' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px}
+.summary{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:10px 12px;border:1px dashed var(--line-strong);border-radius:10px;margin-bottom:14px;color:var(--muted);font-size:14px}
+.summary b{font:700 24px/1 var(--display);font-variant-numeric:tabular-nums;color:var(--fg)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 18px;border-radius:10px;border:1px solid transparent;font:600 16px/1 var(--body);cursor:pointer;width:100%;color:var(--fg);background:var(--surface-3);transition:filter .15s;text-decoration:none}
+.btn:hover{filter:brightness(1.08)}
+.btn-gold{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:var(--gold-ink)}
+.btn-ghost{background:transparent;border-color:var(--line-strong)}
+.btn-danger{background:var(--danger);color:var(--danger-ink)}
+.btn-sm{min-height:36px;padding:6px 12px;font-size:14px;width:auto}
+.btn[disabled]{opacity:.45;cursor:not-allowed;filter:none}
+.linkbtn{background:none;border:0;color:var(--gold-bright);font:500 13px/1 var(--body);cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:3px}
+.err{color:var(--danger);font-size:14px;margin-top:10px}
+.msg{font-size:14px;margin-top:10px;color:var(--muted)}
+.msg.good{color:var(--ok)}
+.stub{position:relative;background:var(--paper);color:var(--paper-ink);border-radius:12px;padding:14px 16px 14px 18px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;overflow:hidden}
+.stub::before,.stub::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:var(--surface);top:50%;transform:translateY(-50%)}
+.stub::before{left:-10px}.stub::after{right:-10px}
+.stub .num{font:800 clamp(30px,7vw,40px)/1 var(--display);font-variant-numeric:tabular-nums;color:var(--felt);padding-right:14px;border-right:2px dashed var(--paper-rule);white-space:nowrap}
+.stub .r-em{font-weight:600;overflow-wrap:anywhere}
+.stub .r-meta{font-size:13px;color:var(--paper-muted);margin-top:2px}
+.stub .r-say{font-size:13px;margin-top:8px;color:var(--paper-ink)}
+.ledger-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:12px;align-items:center}
+.ledger-tools input{min-height:40px;font-size:15px}
+.ledger{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.sale{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.14)}
+.sale .rng{font:500 14px/1.2 var(--mono);color:var(--gold-bright);white-space:nowrap}
+.sale .who{min-width:0}
+.sale .em{overflow-wrap:anywhere;font-weight:500;font-size:15px}
+.sale .meta{font-size:12px;color:var(--muted)}
+.sale .amt{font:700 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.sale.void{opacity:.55}
+.sale.void .em{text-decoration:line-through}
+.sale .act{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.sale .act.confirm{border-top:1px dashed var(--line);padding-top:8px}
+.sale .act input{min-height:36px;font-size:15px;flex:1 1 180px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;letter-spacing:.04em;padding:3px 8px;border-radius:999px;border:1px solid var(--line-strong);color:var(--muted);white-space:nowrap}
+.chip.sent{border-color:rgba(127,211,154,.5);color:var(--ok)}
+.chip.failed{border-color:rgba(232,112,92,.6);color:var(--danger)}
+.chip.queued{border-color:rgba(240,179,90,.5);color:var(--warn)}
+.xbtn{background:transparent;border:1px solid var(--line-strong);color:var(--muted);border-radius:8px;min-height:32px;padding:4px 10px;font:500 13px/1 var(--body);cursor:pointer}
+.xbtn:hover{color:var(--fg);border-color:var(--fg)}
+.xbtn.yes{background:var(--danger);border-color:var(--danger);color:var(--danger-ink);font-weight:600}
+.xbtn.gold{background:var(--gold);border-color:var(--gold);color:var(--gold-ink);font-weight:600}
+.empty{color:var(--muted);font-size:14px;padding:14px 4px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+.drum{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.drum>div{background:rgba(0,0,0,.14);padding:10px 12px}
+.drum .k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.drum .v{font:700 24px/1.1 var(--display);font-variant-numeric:tabular-nums;margin-top:2px}
+.fine{font-size:13px;color:var(--muted);margin:10px 0 0}
+.winner{background:linear-gradient(160deg,#1b4f39,#0f3527);border:1px solid var(--gold);box-shadow:0 0 0 5px rgba(216,179,90,.12),var(--shadow);text-align:center;padding:28px 16px 24px}
+.winner .eyebrow{color:var(--gold-bright)}
+.winner .num{font:800 clamp(76px,22vw,150px)/1 var(--display);color:var(--gold-bright);font-variant-numeric:tabular-nums;letter-spacing:.02em;margin-top:6px}
+.winner .em{font-size:clamp(18px,4.6vw,28px);font-weight:600;overflow-wrap:anywhere;margin-top:6px}
+.winner .meta{color:var(--muted);font-size:13px;margin-top:10px}
+.winner .acts{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.overlay{position:fixed;inset:0;background:rgba(3,14,10,.72);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal{background:var(--surface);border:1px solid var(--line-strong);border-radius:16px;padding:22px 18px;max-width:440px;width:100%;box-shadow:var(--shadow)}
+.modal h3{font:700 26px/1.05 var(--display);text-transform:uppercase;margin:0 0 10px}
+.modal p{margin:0 0 12px;color:var(--muted);font-size:15px}
+.modal .acts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--paper);color:var(--paper-ink);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;box-shadow:var(--shadow);z-index:60;max-width:calc(100% - 32px);text-align:center;overflow-wrap:anywhere}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:8px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
+.kv:last-child{border-bottom:0}
+.kv .k{color:var(--muted)}
+.kv .v{overflow-wrap:anywhere;text-align:right;flex:1 1 200px}
+hr.rule{border:0;border-top:1px solid var(--line);margin:16px 0}
+.danger-zone{border:1px solid rgba(232,112,92,.45);border-radius:10px;padding:12px}
+.danger-zone h3{margin:0 0 6px;font:700 17px/1.1 var(--display);text-transform:uppercase;letter-spacing:.06em;color:var(--danger)}
+footer{color:var(--muted);font-size:12px;text-align:center;padding-top:8px}
+body.stage .hide-on-stage{display:none!important}
+body.stage .wrap{max-width:1100px;grid-template-columns:1fr}
+body.stage .tally .v{font-size:clamp(44px,10vw,110px)}
+body.stage .tally .k{font-size:clamp(12px,1.6vw,18px)}
+body.stage h1{font-size:clamp(40px,8vw,96px)}
+body.stage .winner .num{font-size:clamp(110px,26vw,260px)}
+body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead full">
+    <div class="mast-row">
+      <div>
+        <div class="eyebrow">50/50 Raffle</div>
+        <h1 id="event-name">Casino Night<br>For The Neuro 2026</h1>
+      </div>
+      <div class="mast-tools">
+        <span class="live" id="live"><i></i><span id="live-text">Connecting</span></span>
+        <span class="pill" id="status-pill">Loading</span>
+        <button class="btn btn-ghost btn-sm" id="stage-btn" type="button">Stage view</button>
+        <button class="btn btn-ghost btn-sm hide-on-stage" id="settings-btn" type="button">Settings</button>
+      </div>
+    </div>
+    <div class="tally" aria-live="polite">
+      <div><div class="k">Tickets sold</div><div class="v" id="t-tickets">—</div><div class="s" id="t-buyers">&nbsp;</div></div>
+      <div><div class="k">Raised</div><div class="v" id="t-raised">—</div><div class="s">total collected</div></div>
+      <div><div class="k">Winner takes</div><div class="v gold" id="t-half">—</div><div class="s">half the pot</div></div>
+    </div>
+  </header>
+
+  <div class="full" id="notices" hidden>
+    <div class="notice bad" id="conn-banner" hidden><b>Can't reach the raffle server.</b> Check the connection. The page keeps retrying on its own.</div>
+    <div class="notice bad" id="token-banner" hidden><b>This link isn't valid.</b> Ask the organizer for the current seller link.</div>
+    <div class="notice" id="mail-banner" hidden><b>Email sending is off on this server.</b> Buyers won't get a confirmation until it's configured.</div>
+  </div>
+
+  <section class="card winner full" id="winner" hidden>
+    <div class="eyebrow">Winning ticket</div>
+    <div class="num" id="w-ticket">#—</div>
+    <div class="em" id="w-email"></div>
+    <div class="meta" id="w-meta"></div>
+    <div class="meta" id="w-mail"></div>
+    <div class="acts hide-on-stage">
+      <button class="btn btn-ghost btn-sm" id="w-copy" type="button">Copy email</button>
+      <button class="btn btn-gold btn-sm" id="w-email-btn" type="button">Email the winner</button>
+    </div>
+  </section>
+
+  <div class="col">
+    <section class="card hide-on-stage" id="sale-card">
+      <h2>Log a sale <span class="sub" id="next-ticket"></span></h2>
+      <div class="notice good" id="closed-note" hidden>Sales are closed. The winner has been drawn.</div>
+      <form id="sale-form" novalidate>
+        <div class="row2">
+          <div class="field">
+            <label for="pkg">Ticket package</label>
+            <select id="pkg" name="pkg">
+              <option value="0">1 ticket for $5</option>
+              <option value="1">3 tickets for $10</option>
+              <option value="2">10 tickets for $20</option>
+              <option value="3">40 tickets for $50</option>
+              <option value="4">100 tickets for $100</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="qty">Quantity</label>
+            <select id="qty" name="qty">
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+              <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+            </select>
+          </div>
+        </div>
+        <div class="summary"><span>This sale</span><b id="sale-summary">1 ticket · $5</b></div>
+        <div class="field">
+          <label for="email">Buyer's email <span id="email-hint" style="font-weight:400">(gets the confirmation with their numbers)</span></label>
+          <input id="email" name="email" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="name@example.com" required>
+        </div>
+        <button class="btn btn-gold" id="sale-btn" type="submit" disabled>Connecting…</button>
+        <div class="err" id="sale-error" hidden></div>
+      </form>
+    </section>
+
+    <section class="card hide-on-stage" id="receipt" hidden>
+      <h2>Last logged <button class="linkbtn" id="r-close" type="button">Dismiss</button></h2>
+      <div class="stub">
+        <div class="num" id="r-range">#—</div>
+        <div>
+          <div class="r-em" id="r-email"></div>
+          <div class="r-meta" id="r-meta"></div>
+          <div class="r-say" id="r-say"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card hide-on-stage" id="ledger-card">
+      <h2>Sales <span class="sub" id="ledger-count"></span></h2>
+      <div class="ledger-tools">
+        <input id="ledger-filter" type="search" placeholder="Find by email or ticket #" autocomplete="off">
+        <a class="btn btn-ghost btn-sm" id="export-btn" href="export.csv" download>Export CSV</a>
+      </div>
+      <div class="empty" id="ledger-empty">Connecting to the raffle server…</div>
+      <ul class="ledger" id="ledger-list"></ul>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card hide-on-stage" id="draw-card">
+      <h2>End of night</h2>
+      <p class="lede" id="draw-lede">When the last ticket is sold, draw the winner here. You'll be asked to confirm and enter the admin PIN first.</p>
+      <div class="drum">
+        <div><div class="k">In the drum</div><div class="v" id="d-tickets">—</div></div>
+        <div><div class="k">Buyers</div><div class="v" id="d-buyers">—</div></div>
+        <div><div class="k">Pot</div><div class="v" id="d-pot">—</div></div>
+        <div><div class="k">Winner takes</div><div class="v" id="d-half">—</div></div>
+      </div>
+      <button class="btn btn-gold" id="draw-btn" type="button" disabled>Draw the winner</button>
+      <p class="fine" id="draw-note"></p>
+    </section>
+
+    <section class="card hide-on-stage" id="settings" hidden>
+      <h2>Settings</h2>
+      <div class="kv"><span class="k">Seller name on this phone</span><span class="v"><input id="seller-name" type="text" autocomplete="off" placeholder="Optional, e.g. Marie" style="min-height:36px;font-size:14px"></span></div>
+      <div class="kv"><span class="k">Seller link</span><span class="v"><button class="linkbtn" id="copy-link" type="button">Copy this link</button></span></div>
+      <div class="kv"><span class="k">Admin PIN</span><span class="v">Set on the server (ADMIN_PIN). Needed to draw, email the winner, or reset.</span></div>
+      <div class="kv"><span class="k">Confirmation emails</span><span class="v" id="mail-provider">—</span></div>
+      <div class="kv"><span class="k">Ticket numbering</span><span class="v" id="num-status">Sequential from #1</span></div>
+      <hr class="rule">
+      <div class="danger-zone">
+        <h3>Reset the raffle</h3>
+        <p class="lede" style="margin-bottom:10px">Deletes every sale and starts ticket numbers again at #1. Use it to clear test entries before the event. This cannot be undone.</p>
+        <div class="row2" style="grid-template-columns:1fr 1fr">
+          <div class="field"><label for="reset-pin">Admin PIN</label><input id="reset-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></div>
+          <div class="field"><label for="reset-word">Type RESET</label><input id="reset-word" type="text" autocomplete="off" autocapitalize="characters"></div>
+        </div>
+        <button class="btn btn-danger btn-sm" id="reset-btn" type="button">Delete all sales and reset</button>
+        <div class="msg" id="reset-msg" hidden></div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="full" id="footer"></footer>
+</div>
+
+<div class="overlay" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="m-title">
+  <div class="modal">
+    <h3 id="m-title"></h3>
+    <p id="m-body"></p>
+    <div class="field" id="m-pin-field"><label for="m-pin">Admin PIN</label><input id="m-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></div>
+    <div class="err" id="m-error" hidden></div>
+    <div class="acts">
+      <button class="btn btn-ghost" id="m-cancel" type="button">Cancel</button>
+      <button class="btn btn-gold" id="m-confirm" type="button">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(function(){
+'use strict';
+var TOKEN=(location.pathname.match(/^\/s\/([A-Za-z0-9_-]+)/)||[])[1]||'';
+var $=function(id){return document.getElementById(id)};
+var reduceMotion=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+var S={version:0,raffle:null,sales:[],totals:null,config:null,loaded:false,failures:0,unauthorized:false,filter:'',confirm:null,editing:null,lastReceipt:null,revealedAt:null,sawOpen:false,busy:false,stage:false,pollTimer:null};
+var PKGS=[{t:1,p:5},{t:3,p:10},{t:10,p:20},{t:40,p:50},{t:100,p:100}];
+
+/* ---------- helpers ---------- */
+function money(n){n=Number(n)||0;return new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2}).format(n)}
+function timeOf(iso){try{return new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}catch(e){return ''}}
+function range(a,b){return a===b?('#'+a):('#'+a+'–#'+b)}
+function plural(n,w){return n+' '+w+(n===1?'':'s')}
+function maskEmail(e){e=String(e||'');var i=e.indexOf('@');if(i<1)return e;return e[0]+'•••'+e.slice(i)}
+function randomInt(n){var a=new Uint32Array(1),max=4294967296,lim=max-(max%n);do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n}
+var toastTimer=null;
+function toast(msg,ms){var t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.hidden=true},ms||2800)}
+function copyText(text){
+  var p=(navigator.clipboard&&navigator.clipboard.writeText)?navigator.clipboard.writeText(text):Promise.reject(new Error('no clipboard'));
+  return p.then(function(){toast('Copied');return true}).catch(function(){
+    try{var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.select();var ok=document.execCommand('copy');document.body.removeChild(ta);toast(ok?'Copied':'Select and copy the text manually');return ok}catch(e){toast('Select and copy the text manually');return false}
+  });
+}
+function errText(e){return (e&&e.message)||'Something went wrong. Try again.'}
+function api(path,body){
+  var opt={method:body?'POST':'GET',headers:{'x-raffle-token':TOKEN}};
+  if(body){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body)}
+  return fetch(path,opt).then(function(r){
+    return r.text().then(function(t){
+      var j={};try{j=t?JSON.parse(t):{}}catch(e){}
+      if(r.status===401){S.unauthorized=true;renderNotices()}
+      if(!r.ok)throw (j&&j.error)||{code:'http'+r.status,message:'Server error ('+r.status+').'};
+      return j;
+    });
+  },function(){throw{code:'network',message:'Can’t reach the raffle server. Check the connection and try again.'}});
+}
+
+/* ---------- state ---------- */
+function liveSales(){return S.sales.filter(function(s){return !s.voided})}
+function totals(){if(S.totals)return S.totals;var live=liveSales(),tickets=0,gross=0;for(var i=0;i<live.length;i++){tickets+=(live[i].to-live[i].from+1);gross+=Number(live[i].amount)||0}return{tickets:tickets,gross:gross,buyers:live.length,half:gross/2}}
+function isDrawn(){return !!(S.raffle&&S.raffle.status==='drawn')}
+function mailOn(){return !!(S.config&&S.config.emailProvider&&S.config.emailProvider!=='none')}
+function applySnapshot(snap){
+  if(!snap||snap.unchanged)return;
+  S.version=snap.version;S.raffle=snap.state;S.sales=snap.sales||[];S.totals=snap.totals||null;S.config=snap.config||S.config;S.loaded=true;S.failures=0;S.unauthorized=false;
+  if(!isDrawn())S.sawOpen=true;
+  renderAll();setLive();
+}
+function schedule(ms){clearTimeout(S.pollTimer);S.pollTimer=setTimeout(poll,ms)}
+function poll(){
+  api('/api/state?since='+S.version).then(function(j){
+    if(j.unchanged){S.failures=0;setLive()}else applySnapshot(j);
+    schedule(document.hidden?8000:2500);
+  }).catch(function(e){
+    if(e.code!=='unauthorized')S.failures++;
+    setLive();renderNotices();
+    schedule(e.code==='unauthorized'?15000:(S.failures>3?6000:2500));
+  });
+}
+
+/* ---------- render ---------- */
+function renderAll(){renderHeader();renderTally();renderForm();renderLedger();renderDraw();renderWinner();renderSettings();renderNotices();renderFooter()}
+function renderHeader(){
+  var pill=$('status-pill');
+  if(!S.loaded){pill.textContent='Loading';pill.className='pill';return}
+  if(isDrawn()){pill.textContent='Drawn';pill.className='pill drawn'}else{pill.textContent='Sales open';pill.className='pill open'}
+  if(S.config&&S.config.eventName){var parts=String(S.config.eventName).split(/\s+for\s+/i);var h=$('event-name');h.textContent='';if(parts.length===2){h.appendChild(document.createTextNode(parts[0]));h.appendChild(document.createElement('br'));h.appendChild(document.createTextNode('For '+parts[1]))}else h.textContent=S.config.eventName;document.title=S.config.eventName+' 50/50'}
+}
+function setLive(){
+  var el=$('live'),tx=$('live-text');
+  if(S.unauthorized){el.className='live off';tx.textContent='Invalid link';return}
+  if(!S.loaded&&S.failures===0){el.className='live stale';tx.textContent='Connecting';return}
+  if(S.failures>=3){el.className='live off';tx.textContent='Offline'}
+  else if(S.failures>0){el.className='live stale';tx.textContent='Reconnecting'}
+  else{el.className='live';tx.textContent='Live'}
+}
+function renderTally(){
+  if(!S.loaded)return;
+  var t=totals();
+  $('t-tickets').textContent=t.tickets.toLocaleString('en-CA');
+  $('t-buyers').textContent=t.buyers?('from '+plural(t.buyers,'buyer')):'no sales yet';
+  $('t-raised').textContent=money(t.gross);
+  $('t-half').textContent=money(t.half);
+}
+function pkgs(){return (S.config&&S.config.packages&&S.config.packages.length)?S.config.packages:PKGS}
+function renderPackages(){
+  var sel=$('pkg'),list=pkgs();
+  if(sel.options.length===list.length){var same=true;for(var i=0;i<list.length;i++){if(sel.options[i].textContent!==plural(list[i].t,'ticket')+' for '+money(list[i].p))same=false}if(same)return}
+  var cur=sel.value;sel.textContent='';
+  list.forEach(function(p,i){var o=document.createElement('option');o.value=String(i);o.textContent=plural(p.t,'ticket')+' for '+money(p.p);sel.appendChild(o)});
+  sel.value=(+cur<list.length)?cur:'0';
+}
+function updateSummary(){
+  var list=pkgs(),pkg=list[+$('pkg').value]||list[0],qty=+$('qty').value||1;
+  $('sale-summary').textContent=plural(pkg.t*qty,'ticket')+' · '+money(pkg.p*qty);
+}
+function setSaleBtn(label){
+  var b=$('sale-btn');
+  if(label){b.textContent=label;b.disabled=true;return}
+  var ready=S.loaded&&!isDrawn()&&!S.unauthorized;
+  b.disabled=!ready;
+  b.textContent=S.unauthorized?'Link not valid':(!S.loaded?'Connecting…':(isDrawn()?'Sales closed':'Log sale'));
+}
+function renderForm(){
+  renderPackages();updateSummary();
+  $('closed-note').hidden=!isDrawn();
+  $('sale-form').hidden=isDrawn();
+  $('email-hint').hidden=!mailOn();
+  var nt=$('next-ticket');
+  nt.textContent=(S.loaded&&!isDrawn())?('Next ticket #'+((S.raffle&&S.raffle.next)||1)):'';
+  if(!S.busy)setSaleBtn();
+}
+function renderReceipt(){
+  var r=S.lastReceipt,card=$('receipt');
+  if(!r){card.hidden=true;return}
+  card.hidden=false;
+  $('r-range').textContent=range(r.from,r.to);
+  $('r-email').textContent=r.email;
+  $('r-meta').textContent=plural(r.pkgTickets,'ticket')+' for '+money(r.pkgPrice)+(r.qty>1?(' × '+r.qty):'')+' · '+money(r.amount)+' · '+timeOf(r.createdAt);
+  $('r-say').textContent=(r.from===r.to?('Tell the buyer: “Your ticket is number '+r.from+'.”'):('Tell the buyer: “Your tickets are '+r.from+' to '+r.to+'.”'))+(mailOn()?' A confirmation email is on its way to them.':'');
+}
+function mailChip(s){
+  var c=document.createElement('span');c.className='chip';
+  if(!mailOn()){c.hidden=true;return c}
+  var m=s.mail;
+  if(!m){c.textContent='No email';return c}
+  if(m.status==='sent'){c.className='chip sent';c.textContent='Emailed '+timeOf(m.sentAt)}
+  else if(m.status==='failed'){c.className='chip failed';c.textContent='Email failed';c.title=m.error||''}
+  else{c.className='chip queued';c.textContent=m.status==='retry'?'Email retrying':'Email queued'}
+  return c;
+}
+function renderLedger(){
+  var list=$('ledger-list'),empty=$('ledger-empty'),count=$('ledger-count');
+  if(!S.loaded){empty.hidden=false;empty.textContent=S.unauthorized?'This link isn’t valid.':'Connecting to the raffle server…';list.textContent='';count.textContent='';return}
+  var all=S.sales.slice().sort(function(a,b){return (b.from||0)-(a.from||0)});
+  var voided=all.filter(function(s){return s.voided}).length;
+  var t=totals();
+  count.textContent=all.length?(plural(all.length-voided,'sale')+' · '+plural(t.tickets,'ticket')+(voided?(' · '+voided+' voided'):'')):'';
+  var f=S.filter.trim().toLowerCase();
+  var rows=f?all.filter(function(s){if(String(s.email||'').toLowerCase().indexOf(f)>=0)return true;var num=parseInt(f.replace('#',''),10);return !isNaN(num)&&num>=s.from&&num<=s.to}):all;
+  list.textContent='';
+  if(!all.length){empty.hidden=false;empty.textContent='No sales yet. The first ticket sold will be #1.';return}
+  if(!rows.length){empty.hidden=false;empty.textContent='No sales match “'+S.filter.trim()+'”.';return}
+  empty.hidden=true;
+  var frag=document.createDocumentFragment();
+  rows.forEach(function(s){
+    var li=document.createElement('li');li.className='sale'+(s.voided?' void':'');
+    var rng=document.createElement('span');rng.className='rng';rng.textContent=range(s.from,s.to);
+    var who=document.createElement('span');who.className='who';
+    var em=document.createElement('span');em.className='em';em.textContent=s.email||'';
+    var meta=document.createElement('span');meta.className='meta';
+    meta.textContent=plural(s.pkgTickets,'ticket')+' for '+money(s.pkgPrice)+(s.qty>1?(' × '+s.qty):'')+' · '+timeOf(s.createdAt)+(s.seller?(' · by '+s.seller):'')+(s.voided?' · Voided':'');
+    who.appendChild(em);who.appendChild(document.createElement('br'));who.appendChild(meta);
+    var amt=document.createElement('span');amt.className='amt';amt.textContent=money(s.amount);
+    li.appendChild(rng);li.appendChild(who);li.appendChild(amt);
+    var act=document.createElement('span');act.className='act';
+    if(S.editing===s.id){
+      act.className='act confirm';
+      var inp=document.createElement('input');inp.type='email';inp.value=s.email||'';inp.setAttribute('autocapitalize','off');inp.placeholder='Corrected email';
+      var save=document.createElement('button');save.type='button';save.className='xbtn gold';save.textContent='Save and resend';
+      save.onclick=function(){changeEmail(s,inp.value)};
+      var no=document.createElement('button');no.type='button';no.className='xbtn';no.textContent='Cancel';no.onclick=function(){S.editing=null;renderLedger()};
+      act.appendChild(inp);act.appendChild(save);act.appendChild(no);li.appendChild(act);
+      setTimeout(function(){inp.focus()},20);
+    }else if(S.confirm===s.id){
+      act.className='act confirm';
+      var q=document.createElement('span');q.textContent=s.voided?('Restore '+range(s.from,s.to)+' to the draw?'):('Void '+range(s.from,s.to)+'? These tickets leave the draw.');
+      var yes=document.createElement('button');yes.type='button';yes.className='xbtn yes';yes.textContent=s.voided?'Yes, restore':'Yes, void';
+      yes.onclick=function(){setVoid(s,!s.voided)};
+      var no2=document.createElement('button');no2.type='button';no2.className='xbtn';no2.textContent='No';no2.onclick=function(){S.confirm=null;renderLedger()};
+      act.appendChild(q);act.appendChild(yes);act.appendChild(no2);li.appendChild(act);
+    }else{
+      act.appendChild(mailChip(s));
+      if(mailOn()){
+        var fix=document.createElement('button');fix.type='button';fix.className='xbtn';fix.textContent='Fix email';fix.onclick=function(){S.editing=s.id;S.confirm=null;renderLedger()};act.appendChild(fix);
+        if(s.mail&&(s.mail.status==='failed'||s.mail.status==='sent')){var rs=document.createElement('button');rs.type='button';rs.className='xbtn';rs.textContent='Resend';rs.onclick=function(){resendMail(s)};act.appendChild(rs)}
+      }
+      if(!isDrawn()){var vb=document.createElement('button');vb.type='button';vb.className='xbtn';vb.textContent=s.voided?'Restore':'Void';vb.style.marginLeft='auto';vb.onclick=function(){S.confirm=s.id;S.editing=null;renderLedger()};act.appendChild(vb)}
+      li.appendChild(act);
+    }
+    frag.appendChild(li);
+  });
+  list.appendChild(frag);
+}
+function renderDraw(){
+  var t=totals();
+  $('d-tickets').textContent=S.loaded?t.tickets.toLocaleString('en-CA'):'—';
+  $('d-buyers').textContent=S.loaded?String(t.buyers):'—';
+  $('d-pot').textContent=S.loaded?money(t.gross):'—';
+  $('d-half').textContent=S.loaded?money(t.half):'—';
+  var btn=$('draw-btn'),note=$('draw-note'),lede=$('draw-lede');
+  if(isDrawn()){btn.hidden=true;lede.textContent='The raffle is over. The winning ticket is shown at the top of the page.';note.textContent='Drawn '+timeOf(S.raffle.draw&&S.raffle.draw.drawnAt)+'.';return}
+  btn.hidden=false;
+  lede.textContent='When the last ticket is sold, draw the winner here. You’ll be asked to confirm and enter the admin PIN first.';
+  btn.disabled=!(S.loaded&&t.tickets>0&&!S.unauthorized);
+  note.textContent=!S.loaded?'':(!t.tickets?'No tickets have been sold yet.':'Every ticket in the drum has an equal chance. The server picks with a cryptographically secure random number.');
+}
+function renderWinner(){
+  var p=$('winner');
+  if(!isDrawn()){p.hidden=true;return}
+  var d=S.raffle.draw||{};
+  p.hidden=false;
+  $('w-email').textContent=S.stage?maskEmail(d.email):(d.email||'');
+  $('w-meta').textContent='Drawn '+timeOf(d.drawnAt)+' · '+plural(d.pool||0,'ticket')+' in the drum · pot '+money(d.gross||0)+' · winner takes '+money((d.gross||0)/2);
+  var wm=S.raffle.winnerMail,wmEl=$('w-mail');
+  if(!mailOn()){wmEl.textContent='';$('w-email-btn').hidden=true}
+  else{$('w-email-btn').hidden=false;wmEl.textContent=!wm?'The winner has not been emailed yet.':(wm.status==='sent'?('Winner emailed '+timeOf(wm.sentAt)+'.'):(wm.status==='failed'?('Winner email failed: '+(wm.error||'')):'Winner email queued…'))}
+  if(S.revealedAt!==d.drawnAt){S.revealedAt=d.drawnAt;if(S.sawOpen&&!reduceMotion)spin(d.ticket);else $('w-ticket').textContent='#'+d.ticket}
+}
+function spin(finalNum){
+  var el=$('w-ticket');var maxN=Math.max(finalNum,(S.raffle&&S.raffle.next?S.raffle.next-1:0),9);
+  var start=performance.now(),dur=2800,last=0;
+  function step(now){var t=Math.min(1,(now-start)/dur);var interval=30+t*t*260;if(now-last>=interval){el.textContent='#'+(1+randomInt(maxN));last=now}if(t<1)requestAnimationFrame(step);else el.textContent='#'+finalNum}
+  requestAnimationFrame(step);
+}
+function renderSettings(){
+  var prov=S.config?S.config.emailProvider:null,el=$('mail-provider');
+  el.textContent=prov==='ghl'?'On. Sent through GoHighLevel as Logan Boyce; each buyer is tagged in the Montreal sub-account.':(prov==='dry'?'Test mode: emails are recorded but not sent.':(prov?'Off. Set GHL_PIT and GHL_LOCATION_ID on the server.':'—'));
+  $('num-status').textContent=S.loaded?('Next ticket #'+((S.raffle&&S.raffle.next)||1)):'Sequential from #1';
+}
+function renderNotices(){
+  var conn=S.failures>=3&&!S.unauthorized,tok=S.unauthorized,mail=S.loaded&&S.config&&S.config.emailProvider==='none';
+  $('conn-banner').hidden=!conn;$('token-banner').hidden=!tok;$('mail-banner').hidden=!mail;
+  $('notices').hidden=!(conn||tok||mail);
+}
+function renderFooter(){
+  var f=$('footer');if(!S.config){f.textContent='';return}
+  f.textContent=[S.config.licence,S.config.eventDate].filter(Boolean).join(' · ');
+}
+function applyStage(){document.body.classList.toggle('stage',S.stage);$('stage-btn').textContent=S.stage?'Exit stage view':'Stage view';renderWinner()}
+
+/* ---------- modal ---------- */
+var modalCb=null;
+function openModal(o){
+  $('m-title').textContent=o.title;$('m-body').textContent=o.body;
+  $('m-pin-field').hidden=!o.pin;$('m-pin').value='';
+  $('m-error').hidden=true;$('m-error').textContent='';
+  var c=$('m-confirm');c.textContent=o.confirmLabel||'Confirm';c.disabled=false;c.className='btn '+(o.danger?'btn-danger':'btn-gold');
+  modalCb=o.onConfirm;$('modal').hidden=false;
+  setTimeout(function(){(o.pin?$('m-pin'):c).focus()},30);
+}
+function closeModal(){$('modal').hidden=true;modalCb=null}
+$('m-cancel').onclick=closeModal;
+$('modal').addEventListener('click',function(ev){if(ev.target===$('modal'))closeModal()});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&!$('modal').hidden)closeModal()});
+$('m-pin').addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();$('m-confirm').click()}});
+$('m-confirm').onclick=function(){
+  if(!modalCb)return;
+  var c=$('m-confirm');var label=c.textContent;c.disabled=true;c.textContent='Working…';$('m-error').hidden=true;
+  Promise.resolve().then(function(){return modalCb($('m-pin').value.trim())}).then(function(){closeModal()}).catch(function(e){var el=$('m-error');el.textContent=errText(e);el.hidden=false;c.disabled=false;c.textContent=label});
+};
+
+/* ---------- actions ---------- */
+function sellerName(){try{return (localStorage.getItem('sellerName')||'').trim()}catch(e){return ''}}
+function logSale(ev){
+  ev.preventDefault();
+  if(S.busy||!S.loaded)return;
+  var errEl=$('sale-error');errEl.hidden=true;errEl.textContent='';
+  var email=$('email').value.trim(),pkg=+$('pkg').value,qty=+$('qty').value||1;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){errEl.textContent='Enter a valid email address.';errEl.hidden=false;$('email').focus();return}
+  if(isDrawn()){errEl.textContent='Sales are closed. The winner has been drawn.';errEl.hidden=false;return}
+  S.busy=true;setSaleBtn('Saving…');
+  api('/api/sales',{email:email,pkg:pkg,qty:qty,seller:sellerName()}).then(function(j){
+    S.lastReceipt=j.sale;renderReceipt();applySnapshot(j.snapshot);
+    $('email').value='';$('pkg').value='0';$('qty').value='1';updateSummary();
+    toast('Logged '+range(j.sale.from,j.sale.to)+' for '+j.sale.email);
+  }).catch(function(e){errEl.textContent=errText(e);errEl.hidden=false;if(e.code==='closed')poll()})
+  .then(function(){S.busy=false;setSaleBtn()});
+}
+function setVoid(s,voided){
+  S.confirm=null;renderLedger();
+  api('/api/sales/'+s.id+'/void',{voided:voided}).then(function(j){applySnapshot(j.snapshot);toast(voided?('Voided '+range(s.from,s.to)):('Restored '+range(s.from,s.to)))}).catch(function(e){toast(errText(e),4000);poll()});
+}
+function changeEmail(s,email){
+  email=String(email||'').trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('Enter a valid email address.');return}
+  S.editing=null;renderLedger();
+  api('/api/sales/'+s.id+'/email',{email:email}).then(function(j){applySnapshot(j.snapshot);toast('Email updated. Confirmation resent to '+email)}).catch(function(e){toast(errText(e),4000)});
+}
+function resendMail(s){api('/api/sales/'+s.id+'/resend',{}).then(function(j){applySnapshot(j.snapshot);toast('Confirmation queued for '+s.email);setTimeout(poll,1200)}).catch(function(e){toast(errText(e),4000)})}
+$('pkg').addEventListener('change',updateSummary);
+$('qty').addEventListener('change',updateSummary);
+$('sale-form').addEventListener('submit',logSale);
+$('r-close').onclick=function(){S.lastReceipt=null;renderReceipt()};
+$('ledger-filter').addEventListener('input',function(){S.filter=this.value;renderLedger()});
+$('draw-btn').onclick=function(){
+  var t=totals();
+  openModal({title:'End the 50/50 and draw the winner?',body:'This closes sales for good. '+plural(t.tickets,'ticket')+' from '+plural(t.buyers,'buyer')+' are in the drum. The pot is '+money(t.gross)+'; the winner takes '+money(t.half)+'.',pin:true,confirmLabel:'Yes, draw the winner',
+    onConfirm:function(pin){if(!pin)throw{message:'Enter the admin PIN.'};return api('/api/draw',{pin:pin}).then(function(j){applySnapshot(j.snapshot)})}});
+};
+$('w-copy').onclick=function(){var d=S.raffle&&S.raffle.draw;if(d)copyText(d.email||'')};
+$('w-email-btn').onclick=function(){
+  var d=S.raffle&&S.raffle.draw;if(!d)return;
+  openModal({title:'Email the winner?',body:'Sends a "you won" email with ticket #'+d.ticket+' and the prize amount to '+d.email+'.',pin:true,confirmLabel:'Yes, send it',
+    onConfirm:function(pin){if(!pin)throw{message:'Enter the admin PIN.'};return api('/api/winner-email',{pin:pin}).then(function(j){applySnapshot(j.snapshot);toast('Winner email queued');setTimeout(poll,1200)})}});
+};
+$('settings-btn').onclick=function(){var s=$('settings');s.hidden=!s.hidden;if(!s.hidden&&s.scrollIntoView)s.scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'})};
+$('copy-link').onclick=function(){copyText(location.origin+'/s/'+TOKEN)};
+$('seller-name').addEventListener('input',function(){try{localStorage.setItem('sellerName',this.value.slice(0,60))}catch(e){}});
+try{$('seller-name').value=sellerName()}catch(e){}
+$('reset-btn').onclick=function(){
+  var m=$('reset-msg');m.hidden=false;m.className='msg';
+  if($('reset-word').value.trim()!=='RESET'){m.textContent='Type RESET to confirm.';return}
+  m.textContent='Resetting…';
+  api('/api/reset',{pin:$('reset-pin').value.trim(),word:'RESET'}).then(function(j){S.lastReceipt=null;S.revealedAt=null;renderReceipt();applySnapshot(j.snapshot);m.className='msg good';m.textContent='Raffle reset. Ticket numbers start again at #1.';$('reset-pin').value='';$('reset-word').value=''}).catch(function(e){m.textContent=errText(e)});
+};
+$('stage-btn').onclick=function(){S.stage=!S.stage;try{localStorage.setItem('stage',S.stage?'1':'0')}catch(e){}applyStage()};
+$('export-btn').href='/s/'+TOKEN+'/export.csv';
+updateSummary();
+try{if(location.hash==='#stage'||localStorage.getItem('stage')==='1')S.stage=true}catch(e){}
+applyStage();
+document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
+poll();
+})();
+</script>
+</body>
+</html>

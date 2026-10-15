@@ -1,0 +1,12 @@
+{
+  "name": "casino-night-5050",
+  "version": "1.0.0",
+  "private": true,
+  "description": "50/50 raffle sales log and winner draw for Casino Night For The Neuro",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server.js",
+    "test": "node --no-warnings=ExperimentalWarning test/flow.test.js"
+  },
+  "engines": { "node": ">=22.13" }
+}
