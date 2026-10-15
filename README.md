@@ -18,20 +18,25 @@ Payments are taken separately (Square). The app only records tickets, email and 
 
 | Path | Who | What |
 | --- | --- | --- |
-| `/` | anyone | landing page, nothing sensitive |
-| `/s/<SELLER_TOKEN>` | sellers | the app (share this link) |
-| `/s/<SELLER_TOKEN>/export.csv` | sellers | CSV of all sales (+ winner line) |
-| `/api/*` | the page | needs header `x-raffle-token: <SELLER_TOKEN>` |
+| `/` | sellers | PIN screen. The seller PIN or the admin PIN signs that phone in for 30 days (HttpOnly cookie) |
+| `/app` | signed-in phones | the seller page |
+| `/app/export.csv` | signed-in phones | CSV of all sales (+ winner line) |
+| `/logout` (POST) | signed-in phones | sign this phone out (Settings → Sign out) |
+| `/s/<SELLER_TOKEN>` | legacy | signs in and redirects to `/app` |
+| `/api/*` | the page | session cookie, or header `x-raffle-token: <SELLER_TOKEN>` |
 | `/healthz` | Coolify | health check |
 
-Admin actions (`/api/draw`, `/api/winner-email`, `/api/reset`) also need `pin` = `ADMIN_PIN` in the body.
-Eight wrong PINs lock that IP for 10 minutes.
+Admin actions (`/api/draw`, `/api/winner-email`, `/api/reset`, `/api/seller-pin`) also need `pin` = `ADMIN_PIN` in the body.
+Eight wrong PINs (gate or admin) lock that IP for 10 minutes.
+
+The seller PIN lives in the database: `SELLER_PIN` only seeds it on the very first boot (otherwise a random
+4-digit PIN is generated and printed in the logs). Change it any time from Settings → "Change the seller PIN"
+with the admin PIN; that signs every other phone out.
 
 ### Environment variables
 
 See `.env.example`. Required in production: `ADMIN_PIN`, `GHL_PIT`, `GHL_LOCATION_ID`, `PUBLIC_URL`.
-`SELLER_TOKEN` is optional: when unset the server generates one, stores it in the database and prints the
-seller link in the logs on every boot.
+`SELLER_TOKEN` is optional (legacy link); when unset the server generates one and prints it in the logs.
 
 ## Deploy on Coolify (Hetzner)
 
