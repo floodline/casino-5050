@@ -159,17 +159,20 @@ body.stage.idle .st-tools{opacity:0}
 .st-panel{border:1px solid var(--line);border-radius:2.2vh;background:rgba(0,0,0,.18);padding:4vh 3vw;display:flex;flex-direction:column;justify-content:center;gap:3.2vh;min-width:0;min-height:0;box-shadow:var(--shadow)}
 .st-panel.right{background:linear-gradient(160deg,#1b4f39,#0f3527);border-color:rgba(216,179,90,.5);box-shadow:0 0 0 .6vh rgba(216,179,90,.10),var(--shadow)}
 .st-eyebrow{font:600 min(1.4vw,2.6vh)/1 var(--body);letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
-.st-k{font:500 min(1.5vw,2.8vh)/1.2 var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.14em}
-.st-v{font:800 min(8vw,16vh)/1 var(--display);font-variant-numeric:tabular-nums;color:var(--fg);overflow-wrap:anywhere}
+.st-k{font:500 min(1.5vw,2.8vh)/1.2 var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin:0 0 1.4vh}
+.st-k.gap{margin-top:5vh}
+.st-v{font:800 min(8vw,16vh)/.95 var(--display);font-variant-numeric:tabular-nums;color:var(--fg);overflow-wrap:anywhere;margin:0}
+.st-v.small{font-size:min(4.6vw,9.5vh);color:var(--fg)}
+.st-v.pot{font-size:min(11.5vw,27vh)}
 .st-v.gold{color:var(--gold-bright)}
-.st-total{font:800 min(9.5vw,24vh)/1 var(--display);color:var(--gold-bright);font-variant-numeric:tabular-nums;letter-spacing:.01em;overflow-wrap:anywhere}
-.st-live{display:inline-flex;align-items:center;gap:.9vw;font:600 min(1.3vw,2.4vh)/1 var(--body);letter-spacing:.2em;text-transform:uppercase;color:var(--ok)}
+.st-total{font:800 min(12.5vw,31vh)/.95 var(--display);color:var(--gold-bright);font-variant-numeric:tabular-nums;letter-spacing:.01em;overflow-wrap:anywhere;margin:0}
+.st-live{display:inline-flex;align-items:center;gap:.9vw;font:600 min(1.3vw,2.4vh)/1 var(--body);letter-spacing:.2em;text-transform:uppercase;color:var(--ok);margin-top:1.5vh}
 .st-live i{width:1.1vw;height:1.1vw;min-width:10px;min-height:10px;border-radius:50%;background:var(--ok);animation:stpulse 1.8s ease-out infinite}
 .st-live.stale{color:var(--warn)}.st-live.stale i{background:var(--warn);animation:none}
 @keyframes stpulse{0%{box-shadow:0 0 0 0 rgba(127,211,154,.6)}70%{box-shadow:0 0 0 1.1vw rgba(127,211,154,0)}100%{box-shadow:0 0 0 0 rgba(127,211,154,0)}}
 .st-win{font:800 min(13vw,30vh)/1 var(--display);color:var(--gold-bright);font-variant-numeric:tabular-nums}
 .st-note{font:500 min(1.4vw,2.6vh)/1.4 var(--body);color:var(--muted)}
-@media (max-aspect-ratio:1/1){body.stage #stage .st-grid{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:3vh}.st-title{font-size:min(8vw,6vh)}.st-v{font-size:min(16vw,14vh)}.st-total{font-size:min(17vw,16vh)}}
+@media (max-aspect-ratio:1/1){body.stage #stage .st-grid{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:3vh}.st-title{font-size:min(8vw,6vh)}.st-v.small{font-size:min(9vw,7vh)}.st-v.pot{font-size:min(19vw,15vh)}.st-total{font-size:min(21vw,17vh)}.st-k.gap{margin-top:3vh}}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -383,9 +386,9 @@ body.stage.idle .st-tools{opacity:0}
       <div class="st-eyebrow">50/50 Raffle</div>
       <div id="st-left-open">
         <div class="st-k">Tickets sold</div>
-        <div class="st-v" id="st-tickets">—</div>
-        <div class="st-k" style="margin-top:3vh">Pot</div>
-        <div class="st-v gold" id="st-pot">—</div>
+        <div class="st-v small" id="st-tickets">—</div>
+        <div class="st-k gap">Pot</div>
+        <div class="st-v pot gold" id="st-pot">—</div>
       </div>
       <div id="st-left-drawn" hidden>
         <div class="st-k">Winning ticket</div>
