@@ -444,20 +444,28 @@ async function pullSquare() {
   if (!token) return null;
   const H = { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Square-Version': '2025-01-23' };
   const since = getS('fund_square_since', '') || FUND_DEFAULT_SINCE;
-  const loc = getS('fund_square_location', '');
-  let cents = 0, count = 0, cursor = '';
-  for (let page = 0; page < 50; page++) {
-    const url = 'https://connect.squareup.com/v2/payments?sort_order=ASC&limit=100&begin_time=' + encodeURIComponent(new Date(since).toISOString()) + (loc ? '&location_id=' + encodeURIComponent(loc) : '') + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
-    const j = await fetchJson(url, H);
-    for (const p of (j.payments || [])) {
-      if (p.status !== 'COMPLETED') continue;
-      const amt = Number((p.amount_money && p.amount_money.amount) || 0);
-      const refunded = Number((p.refunded_money && p.refunded_money.amount) || 0);
-      cents += amt - refunded; count++;
+  const onlyLoc = getS('fund_square_location', '');
+  // ListPayments defaults to the seller's MAIN location only, so walk every active location explicitly.
+  const locs = await fetchJson('https://connect.squareup.com/v2/locations', H);
+  const locations = (locs.locations || []).filter(l => !onlyLoc || l.id === onlyLoc).filter(l => (l.status || 'ACTIVE') === 'ACTIVE');
+  if (!locations.length) throw new Error('No active Square locations visible to this token');
+  let cents = 0, count = 0; const perLocation = [];
+  for (const l of locations) {
+    let lc = 0, ln = 0, cursor = '';
+    for (let page = 0; page < 50; page++) {
+      const url = 'https://connect.squareup.com/v2/payments?sort_order=ASC&limit=100&location_id=' + encodeURIComponent(l.id) + '&begin_time=' + encodeURIComponent(new Date(since).toISOString()) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+      const j = await fetchJson(url, H);
+      for (const p of (j.payments || [])) {
+        if (p.status !== 'COMPLETED') continue;
+        const amt = Number((p.amount_money && p.amount_money.amount) || 0);
+        const refunded = Number((p.refunded_money && p.refunded_money.amount) || 0);
+        lc += amt - refunded; ln++;
+      }
+      if (!j.cursor) break; cursor = j.cursor;
     }
-    if (!j.cursor) break; cursor = j.cursor;
+    cents += lc; count += ln; perLocation.push({ id: l.id, name: l.name || l.id, amount: lc / 100, count: ln });
   }
-  return { amount: cents / 100, count, since };
+  return { amount: cents / 100, count, since, locations: perLocation };
 }
 let fundBusy = null, fundLastRun = 0;
 function refreshFund(force) {
@@ -494,7 +502,7 @@ function fundSnapshot(saleTotals) {
   return {
     total: beforeExpenses - expenses, beforeExpenses, expenses, raffleInSquare,
     eventbrite: { amount: ebAmount, source: ovEb !== null ? 'manual' : (typeof eb.amount === 'number' ? 'api' : 'none'), at: eb.at || null, error: eb.error || null, orders: eb.orders || 0, base: eb.base, gross: eb.gross, fees: eb.fees, tax: eb.tax, measure: getS('fund_eventbrite_measure', 'base'), eventName: eb.eventName || getS('fund_eventbrite_event_name', ''), connected: !!getS('fund_eventbrite_token', '') },
-    square: { amount: sqAmount, source: ovSq !== null ? 'manual' : (typeof sq.amount === 'number' ? 'api' : 'none'), at: sq.at || null, error: sq.error || null, count: sq.count || 0, since: getS('fund_square_since', '') || FUND_DEFAULT_SINCE, connected: !!getS('fund_square_token', ''), onsite },
+    square: { amount: sqAmount, source: ovSq !== null ? 'manual' : (typeof sq.amount === 'number' ? 'api' : 'none'), at: sq.at || null, error: sq.error || null, count: sq.count || 0, locations: sq.locations || [], since: getS('fund_square_since', '') || FUND_DEFAULT_SINCE, connected: !!getS('fund_square_token', ''), onsite },
     mcgill: { amount: mcAmount, source: ovMc !== null ? 'manual' : 'none', url: process.env.MCGILL_URL || 'https://crowdfunding.mcgill.ca/ui/main/p/montrealelite2026' },
     raffle: { gross: raffleGross, half: raffleHalf },
   };

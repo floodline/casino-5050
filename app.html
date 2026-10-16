@@ -469,7 +469,7 @@ function renderFund(){
   [['Eventbrite',f.eventbrite],['Square',f.square],['Donations',f.mcgill]].forEach(function(x){var s=document.createElement('span');var i=document.createElement('i');i.className=x[1].source==='api'||x[1].source==='manual'?(x[1].error?'warn':''):'off';s.appendChild(i);s.appendChild(document.createTextNode(srcText(x[0],x[1])+'  '));fr.appendChild(s)});
   var fs=S.fundSettings;if(!fs)return;
   $('f-eb-status').textContent=fs.eventbriteConnected?('— connected'+(fs.eventbriteEvent?(' to “'+fs.eventbriteEvent+'”'):'')+(f.eventbrite.source==='api'?(' · '+plural(f.eventbrite.orders||0,'order')+', '+money(f.eventbrite.base||0)+' before fees / '+money(f.eventbrite.gross||0)+' paid'):'')+(f.eventbrite.error?(' · '+f.eventbrite.error):'')):'— not connected';
-  $('f-sq-status').textContent=fs.squareConnected?('— connected, '+plural(f.square.count||0,'payment')+' counted'+(f.square.error?(' · '+f.square.error):'')):'— not connected';
+  $('f-sq-status').textContent=fs.squareConnected?('— connected, '+plural(f.square.count||0,'payment')+' counted'+((f.square.locations||[]).length?(' across '+(f.square.locations||[]).map(function(l){return l.name+' ('+money(l.amount)+')'}).join(', ')):'')+(f.square.error?(' · '+f.square.error):'')):'— not connected';
   var key=JSON.stringify(fs);
   if(S.fundFormKey!==key&&($('settings').hidden||!S.fundFormKey)){
     S.fundFormKey=key;
