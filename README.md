@@ -33,6 +33,24 @@ The seller PIN lives in the database: `SELLER_PIN` only seeds it on the very fir
 4-digit PIN is generated and printed in the logs). Change it any time from Settings → "Change the seller PIN"
 with the admin PIN; that signs every other phone out.
 
+### Fundraising total (Stage view, right panel)
+
+"Raised for The Neuro tonight" = Eventbrite tickets + Square on-site sales (minus the 50/50 sales if they
+also go through Square) + the 50/50 share kept by The Neuro (half the pot) + online donations − expenses.
+
+- **Eventbrite**: paste the account's private token in Settings → Fundraising; the live Casino Night event is
+  auto-detected (name containing "Casino", else the newest). Orders with status `placed` are summed; refunds are
+  skipped. Setting "Count Eventbrite tickets as" picks `base_price` (what you receive after Eventbrite fees,
+  default) or `gross` (what attendees paid).
+- **Square**: paste a production access token (developer.squareup.com → your app → Production → Access token).
+  Completed payments since "Count Square payments from" (default Oct 16 2026 00:00 ET) are summed, refunds subtracted.
+- **Online donations**: the McGill crowdfunding page (Raisin platform) needs a browser session handshake, so the
+  "Achieved" amount is typed in manually (Settings → Online donations).
+- **Expenses**: a number subtracted from the total (default 4000).
+- Any source can be overridden manually. Sources refresh every 2 minutes and on "Refresh"; tokens and values
+  live in the SQLite settings table, never in env (env `EVENTBRITE_TOKEN` / `SQUARE_TOKEN` / `EXPENSES` only seed).
+- API: `POST /api/fund-settings` (admin PIN) and `POST /api/fund-refresh`; the snapshot carries `fund` + `fundSettings`.
+
 ### Environment variables
 
 See `.env.example`. Required in production: `ADMIN_PIN`, `GHL_PIT`, `GHL_LOCATION_ID`, `PUBLIC_URL`.
