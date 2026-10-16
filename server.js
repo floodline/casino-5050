@@ -56,13 +56,21 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS mails_status ON mails (status, next_at);
   CREATE INDEX IF NOT EXISTS mails_sale ON mails (sale_id, created_at);
+  CREATE TABLE IF NOT EXISTS cash (
+    id TEXT PRIMARY KEY, amount_cents INTEGER NOT NULL, note TEXT, seller TEXT, created_at TEXT NOT NULL
+  );
 `);
+if (!db.prepare('PRAGMA table_info(sales)').all().some(c => c.name === 'paid')) db.exec("ALTER TABLE sales ADD COLUMN paid TEXT NOT NULL DEFAULT 'square'");
 const q = {
   getS: db.prepare('SELECT value FROM settings WHERE key = ?'),
   setS: db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'),
   sales: db.prepare('SELECT * FROM sales ORDER BY from_no ASC'),
   sale: db.prepare('SELECT * FROM sales WHERE id = ?'),
-  insSale: db.prepare('INSERT INTO sales (id, email, pkg_tickets, pkg_price, qty, tickets, amount, from_no, to_no, created_at, seller) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+  insSale: db.prepare('INSERT INTO sales (id, email, pkg_tickets, pkg_price, qty, tickets, amount, from_no, to_no, created_at, seller, paid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+  cashAll: db.prepare('SELECT * FROM cash ORDER BY created_at ASC'),
+  insCash: db.prepare('INSERT INTO cash (id, amount_cents, note, seller, created_at) VALUES (?, ?, ?, ?, ?)'),
+  delCash: db.prepare('DELETE FROM cash WHERE id = ?'),
+  delAllCash: db.prepare('DELETE FROM cash'),
   voidSale: db.prepare('UPDATE sales SET voided = ?, voided_at = ? WHERE id = ?'),
   emailSale: db.prepare('UPDATE sales SET email = ? WHERE id = ?'),
   delSales: db.prepare('DELETE FROM sales'),
@@ -146,28 +154,44 @@ function readState() {
   return { next: Number(getS('next', '1')), status: getS('status', 'open'), draw: draw ? JSON.parse(draw) : null, resetAt: getS('reset_at') || null };
 }
 function rowToSale(r) {
-  return { id: r.id, email: r.email, pkgTickets: r.pkg_tickets, pkgPrice: r.pkg_price, qty: r.qty, tickets: r.tickets, amount: r.amount, from: r.from_no, to: r.to_no, createdAt: r.created_at, seller: r.seller || null, voided: !!r.voided, voidedAt: r.voided_at || null };
+  return { id: r.id, email: r.email, pkgTickets: r.pkg_tickets, pkgPrice: r.pkg_price, qty: r.qty, tickets: r.tickets, amount: r.amount, from: r.from_no, to: r.to_no, createdAt: r.created_at, seller: r.seller || null, paid: r.paid === 'cash' ? 'cash' : 'square', voided: !!r.voided, voidedAt: r.voided_at || null };
 }
+function listCash() {
+  const entries = q.cashAll.all().map(r => ({ id: r.id, amount: r.amount_cents / 100, note: r.note || '', seller: r.seller || null, createdAt: r.created_at }));
+  return { entries, total: entries.reduce((n, e) => n + e.amount, 0) };
+}
+function addCash(body, ip) {
+  const amount = Math.round(Number(String(body.amount == null ? '' : body.amount).replace(/[^0-9.]/g, '')) * 100);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 10000000) throw new HttpError(400, 'badamount', 'Enter a cash amount above zero.');
+  const note = String(body.note || '').trim().slice(0, 80);
+  const seller = String(body.seller || '').slice(0, 60) || null;
+  const id = crypto.randomBytes(6).toString('base64url');
+  q.insCash.run(id, amount, note, seller, nowIso()); bump();
+  log('cash', { id, amount: amount / 100, note, ip });
+  return { id, amount: amount / 100, note, seller, createdAt: nowIso() };
+}
+function removeCash(id) { q.delCash.run(id); bump(); }
 function listSales() {
   const mails = {};
   for (const m of q.latestMails.all()) mails[m.sale_id] = { status: m.status, sentAt: m.sent_at, error: m.last_error, attempts: m.attempts, to: m.to_email };
   return q.sales.all().map(r => Object.assign(rowToSale(r), { mail: mails[r.id] || null }));
 }
 function totals(sales) {
-  let tickets = 0, gross = 0, buyers = 0;
-  for (const s of sales) if (!s.voided) { tickets += s.to - s.from + 1; gross += s.amount; buyers++; }
-  return { tickets, gross, buyers, half: gross / 2 };
+  let tickets = 0, gross = 0, buyers = 0, grossSquare = 0, grossCash = 0;
+  for (const s of sales) if (!s.voided) { tickets += s.to - s.from + 1; gross += s.amount; buyers++; if (s.paid === 'cash') grossCash += s.amount; else grossSquare += s.amount; }
+  return { tickets, gross, buyers, half: gross / 2, grossSquare, grossCash };
 }
 function snapshot() {
   const sales = listSales();
   const state = readState();
   const wm = q.winnerMails.get();
   const t = totals(sales);
+  const cash = listCash();
   return {
     version: Number(getS('version', '1')),
     state: Object.assign(state, { winnerMail: wm ? { status: wm.status, sentAt: wm.sent_at, error: wm.last_error, to: wm.to_email } : null }),
-    sales, totals: t,
-    fund: fundSnapshot(t), fundSettings: fundSettingsView(),
+    sales, totals: t, cash,
+    fund: fundSnapshot(t, cash.total), fundSettings: fundSettingsView(),
     config: { eventName: EVENT_NAME, eventDate: EVENT_DATE, licence: LICENCE_TEXT, packages: PACKAGES, maxQty: MAX_QTY, emailProvider: EMAIL_PROVIDER, publicUrl: PUBLIC_URL },
   };
 }
@@ -302,6 +326,7 @@ function logSale(body, ip) {
   if (!Number.isInteger(qty) || qty < 1 || qty > MAX_QTY) throw new HttpError(400, 'badqty', 'Quantity must be between 1 and ' + MAX_QTY + '.');
   const pkg = PACKAGES[pkgIdx]; const count = pkg.t * qty;
   const seller = String(body.seller || '').slice(0, 60) || null;
+  const paid = body.paid === 'cash' ? 'cash' : 'square';
   let sale;
   db.exec('BEGIN IMMEDIATE');
   try {
@@ -310,7 +335,7 @@ function logSale(body, ip) {
     const from = st.next, to = from + count - 1;
     const id = crypto.randomBytes(6).toString('base64url');
     const createdAt = nowIso();
-    q.insSale.run(id, email, pkg.t, pkg.p, qty, count, pkg.p * qty, from, to, createdAt, seller);
+    q.insSale.run(id, email, pkg.t, pkg.p, qty, count, pkg.p * qty, from, to, createdAt, seller, paid);
     setS('next', to + 1); bump();
     sale = rowToSale(q.sale.get(id));
     db.exec('COMMIT');
@@ -373,7 +398,7 @@ function resetRaffle(ip, pin, word) {
   db.exec('BEGIN IMMEDIATE');
   try {
     const n = q.sales.all().length;
-    q.delSales.run(); q.delMails.run();
+    q.delSales.run(); q.delMails.run(); q.delAllCash.run();
     setS('next', 1); setS('status', 'open'); setS('draw', ''); setS('reset_at', nowIso()); bump();
     db.exec('COMMIT');
     log('reset', { deleted: n, ip });
@@ -382,9 +407,11 @@ function resetRaffle(ip, pin, word) {
 function csv() {
   const rows = listSales(); const st = readState();
   const qv = v => { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-  const lines = ['ticket_from,ticket_to,tickets,package,quantity,amount_cad,email,logged_at,seller,status,confirmation_email'];
-  for (const s of rows) lines.push([s.from, s.to, s.to - s.from + 1, qv(s.pkgTickets + ' for $' + s.pkgPrice), s.qty, s.amount, qv(s.email), qv(s.createdAt), qv(s.seller || ''), s.voided ? 'voided' : 'live', qv(s.mail ? s.mail.status : '')].join(','));
+  const lines = ['ticket_from,ticket_to,tickets,package,quantity,amount_cad,paid_by,email,logged_at,seller,status,confirmation_email'];
+  for (const s of rows) lines.push([s.from, s.to, s.to - s.from + 1, qv(s.pkgTickets + ' for $' + s.pkgPrice), s.qty, s.amount, s.paid, qv(s.email), qv(s.createdAt), qv(s.seller || ''), s.voided ? 'voided' : 'live', qv(s.mail ? s.mail.status : '')].join(','));
   if (st.status === 'drawn' && st.draw) { lines.push(''); lines.push('winning_ticket,' + st.draw.ticket + ',' + qv(st.draw.email) + ',' + qv(st.draw.drawnAt)); }
+  const cash = listCash();
+  if (cash.entries.length) { lines.push(''); lines.push('cash_amount_cad,note,logged_at,seller'); for (const e of cash.entries) lines.push([e.amount, qv(e.note), qv(e.createdAt), qv(e.seller || '')].join(',')); lines.push('cash_total,' + cash.total); }
   return lines.join('\r\n');
 }
 
@@ -490,7 +517,8 @@ function refreshFund(force) {
   return fundBusy;
 }
 setInterval(() => { if (getS('fund_eventbrite_token', '') || getS('fund_square_token', '')) refreshFund(false); }, 120000).unref();
-function fundSnapshot(saleTotals) {
+function fundSnapshot(saleTotals, cashTotal) {
+  cashTotal = Number(cashTotal) || 0;
   const expenses = numOr(getS('fund_expenses', '4000'), 0);
   const raffleInSquare = getS('fund_raffle_in_square', '1') === '1';
   const ovEb = overrideOf('fund_override_eventbrite'), ovSq = overrideOf('fund_override_square'), ovMc = overrideOf('fund_override_mcgill');
@@ -499,14 +527,15 @@ function fundSnapshot(saleTotals) {
   const sqAmount = ovSq !== null ? ovSq : (typeof sq.amount === 'number' ? sq.amount : 0);
   const mcAmount = ovMc !== null ? ovMc : 0;
   const raffleGross = saleTotals.gross, raffleHalf = raffleGross / 2;
-  const onsite = raffleInSquare ? Math.max(0, sqAmount - raffleGross) : sqAmount;
-  const beforeExpenses = ebAmount + onsite + mcAmount + raffleHalf;
+  // Only the 50/50 sales that were PAID BY CARD are inside the Square total; cash 50/50 sales never touch Square.
+  const onsite = raffleInSquare ? Math.max(0, sqAmount - (saleTotals.grossSquare || 0)) : sqAmount;
+  const beforeExpenses = ebAmount + onsite + cashTotal + mcAmount + raffleHalf;
   return {
-    total: beforeExpenses - expenses, beforeExpenses, expenses, raffleInSquare,
+    total: beforeExpenses - expenses, beforeExpenses, expenses, raffleInSquare, cash: cashTotal,
     eventbrite: { amount: ebAmount, source: ovEb !== null ? 'manual' : (typeof eb.amount === 'number' ? 'api' : 'none'), at: eb.at || null, error: eb.error || null, orders: eb.orders || 0, base: eb.base, gross: eb.gross, fees: eb.fees, tax: eb.tax, measure: getS('fund_eventbrite_measure', 'base'), eventName: eb.eventName || getS('fund_eventbrite_event_name', ''), connected: !!getS('fund_eventbrite_token', '') },
     square: { amount: sqAmount, source: ovSq !== null ? 'manual' : (typeof sq.amount === 'number' ? 'api' : 'none'), at: sq.at || null, error: sq.error || null, count: sq.count || 0, locations: sq.locations || [], merchant: sq.merchant || '', since: getS('fund_square_since', '') || FUND_DEFAULT_SINCE, connected: !!getS('fund_square_token', ''), onsite },
     mcgill: { amount: mcAmount, source: ovMc !== null ? 'manual' : 'none', url: process.env.MCGILL_URL || 'https://crowdfunding.mcgill.ca/ui/main/p/montrealelite2026' },
-    raffle: { gross: raffleGross, half: raffleHalf },
+    raffle: { gross: raffleGross, half: raffleHalf, square: saleTotals.grossSquare || 0, cashPaid: saleTotals.grossCash || 0 },
   };
 }
 function saveFundSettings(ip, body) {
@@ -610,6 +639,8 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== 'POST') throw new HttpError(405, 'method', 'Method not allowed.');
       const body = await readBody(req);
       if (p === '/api/sales') { const sale = logSale(body, ip); return json(res, 201, { sale, snapshot: snapshot() }); }
+      if (p === '/api/cash') { const entry = addCash(body, ip); return json(res, 201, { entry, snapshot: snapshot() }); }
+      if ((m = p.match(/^\/api\/cash\/([A-Za-z0-9_-]+)\/delete$/))) { removeCash(m[1]); return json(res, 200, { ok: true, snapshot: snapshot() }); }
       if ((m = p.match(/^\/api\/sales\/([A-Za-z0-9_-]+)\/(void|email|resend)$/))) {
         if (m[2] === 'void') return json(res, 200, { sale: setVoid(m[1], !!body.voided), snapshot: snapshot() });
         if (m[2] === 'email') return json(res, 200, { sale: changeEmail(m[1], body.email), snapshot: snapshot() });

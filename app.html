@@ -250,9 +250,15 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
           </div>
         </div>
         <div class="summary"><span>This sale</span><b id="sale-summary">1 ticket · $5</b></div>
-        <div class="field">
-          <label for="email">Buyer's email <span id="email-hint" style="font-weight:400">(gets the confirmation with their numbers)</span></label>
-          <input id="email" name="email" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="name@example.com" required>
+        <div class="row2">
+          <div class="field">
+            <label for="email">Buyer's email <span id="email-hint" style="font-weight:400">(gets the confirmation with their numbers)</span></label>
+            <input id="email" name="email" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="name@example.com" required>
+          </div>
+          <div class="field">
+            <label for="paid">Paid by</label>
+            <select id="paid" name="paid"><option value="square">Square</option><option value="cash">Cash</option></select>
+          </div>
         </div>
         <button class="btn btn-gold" id="sale-btn" type="submit" disabled>Connecting…</button>
         <div class="err" id="sale-error" hidden></div>
@@ -269,6 +275,20 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
           <div class="r-say" id="r-say"></div>
         </div>
       </div>
+    </section>
+
+    <section class="card hide-on-stage" id="cash-card">
+      <h2>Cash received <span class="sub" id="cash-total"></span></h2>
+      <p class="lede">Drinks, re-buys, donations paid in cash. Not 50/50 tickets: log those above with "Paid by: Cash".</p>
+      <form id="cash-form" novalidate>
+        <div class="row2" style="grid-template-columns:130px minmax(0,1fr)">
+          <div class="field"><label for="cash-amount">Amount</label><input id="cash-amount" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00"></div>
+          <div class="field"><label for="cash-note">What for</label><input id="cash-note" type="text" autocomplete="off" placeholder="e.g. drinks, re-buy, donation" maxlength="80"></div>
+        </div>
+        <button class="btn btn-sm" id="cash-btn" type="submit">Add cash</button>
+        <div class="err" id="cash-error" hidden></div>
+      </form>
+      <ul class="ledger" id="cash-list" style="margin-top:12px"></ul>
     </section>
 
     <section class="card hide-on-stage" id="ledger-card">
@@ -334,7 +354,7 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
         <div class="field"><label for="f-exp">Expenses to subtract</label><input id="f-exp" type="number" inputmode="decimal" step="0.01" min="0"></div>
         <div class="field"><label for="f-pin">Admin PIN</label><input id="f-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></div>
       </div>
-      <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="f-ris" type="checkbox" style="width:18px;min-height:18px;margin:0"> The Square total includes the 50/50 ticket sales (they are subtracted so nothing counts twice)</label></div>
+      <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="f-ris" type="checkbox" style="width:18px;min-height:18px;margin:0"> The Square total includes the 50/50 tickets paid by card (those are subtracted so nothing counts twice; cash 50/50 sales are never subtracted)</label></div>
       <details style="margin-bottom:12px"><summary style="cursor:pointer;color:var(--muted);font-size:14px">Manual overrides (if a connection isn't working)</summary>
         <div class="row2" style="grid-template-columns:1fr 1fr;margin-top:10px">
           <div class="field"><label for="f-ov-eb">Eventbrite amount</label><input id="f-ov-eb" type="number" inputmode="decimal" step="0.01" min="0" placeholder="blank = live"></div>
@@ -422,7 +442,7 @@ function isDrawn(){return !!(S.raffle&&S.raffle.status==='drawn')}
 function mailOn(){return !!(S.config&&S.config.emailProvider&&S.config.emailProvider!=='none')}
 function applySnapshot(snap){
   if(!snap||snap.unchanged)return;
-  S.version=snap.version;S.raffle=snap.state;S.sales=snap.sales||[];S.totals=snap.totals||null;S.config=snap.config||S.config;S.fund=snap.fund||S.fund;S.fundSettings=snap.fundSettings||S.fundSettings;S.loaded=true;S.failures=0;S.unauthorized=false;
+  S.version=snap.version;S.raffle=snap.state;S.sales=snap.sales||[];S.totals=snap.totals||null;S.config=snap.config||S.config;S.fund=snap.fund||S.fund;S.fundSettings=snap.fundSettings||S.fundSettings;S.cash=snap.cash||S.cash||{entries:[],total:0};S.loaded=true;S.failures=0;S.unauthorized=false;
   if(!isDrawn())S.sawOpen=true;
   renderAll();setLive();
 }
@@ -439,12 +459,35 @@ function poll(){
 }
 
 /* ---------- render ---------- */
-function renderAll(){renderHeader();renderTally();renderForm();renderLedger();renderDraw();renderWinner();renderSettings();renderNotices();renderFooter();renderFund()}
+function renderAll(){renderHeader();renderTally();renderForm();renderLedger();renderCash();renderDraw();renderWinner();renderSettings();renderNotices();renderFooter();renderFund()}
+function renderCash(){
+  var c=S.cash||{entries:[],total:0},list=$('cash-list');
+  $('cash-total').textContent=c.entries.length?(plural(c.entries.length,'entry')+' · '+money(c.total)):'';
+  list.textContent='';
+  c.entries.slice().reverse().forEach(function(e){
+    var li=document.createElement('li');li.className='sale';li.style.gridTemplateColumns='minmax(0,1fr) auto';
+    var who=document.createElement('span');who.className='who';
+    var em=document.createElement('span');em.className='em';em.textContent=e.note||'Cash';
+    var meta=document.createElement('span');meta.className='meta';meta.textContent=timeOf(e.createdAt)+(e.seller?(' · by '+e.seller):'');
+    who.appendChild(em);who.appendChild(document.createElement('br'));who.appendChild(meta);
+    var amt=document.createElement('span');amt.className='amt';amt.textContent=money(e.amount);
+    li.appendChild(who);li.appendChild(amt);
+    var act=document.createElement('span');act.className='act';
+    if(S.confirm==='cash:'+e.id){
+      act.className='act confirm';var q=document.createElement('span');q.textContent='Remove this '+money(e.amount)+' entry?';
+      var yes=document.createElement('button');yes.type='button';yes.className='xbtn yes';yes.textContent='Yes, remove';yes.onclick=function(){S.confirm=null;api('/api/cash/'+e.id+'/delete',{}).then(function(j){applySnapshot(j.snapshot);toast('Removed '+money(e.amount))}).catch(function(err){toast(errText(err),4000)})};
+      var no=document.createElement('button');no.type='button';no.className='xbtn';no.textContent='No';no.onclick=function(){S.confirm=null;renderCash()};
+      act.appendChild(q);act.appendChild(yes);act.appendChild(no);
+    }else{var rb=document.createElement('button');rb.type='button';rb.className='xbtn';rb.textContent='Remove';rb.style.marginLeft='auto';rb.onclick=function(){S.confirm='cash:'+e.id;renderCash()};act.appendChild(rb)}
+    li.appendChild(act);list.appendChild(li);
+  });
+}
 function fillBreakdown(el,f){
   el.textContent='';
   var rows=[
     ['Event tickets (Eventbrite)',f.eventbrite.amount,''],
-    ['On-site sales (Square)'+(f.raffleInSquare?', after the 50/50':''),f.square.onsite,''],
+    ['On-site card sales (Square)'+(f.raffleInSquare?', after the 50/50':''),f.square.onsite,''],
+    ['Cash received on site',f.cash||0,''],
     ['50/50 share to The Neuro',f.raffle.half,''],
     ['Online donations (McGill)',f.mcgill.amount,''],
     ['Expenses',-f.expenses,'neg'],
@@ -534,7 +577,7 @@ function renderReceipt(){
   card.hidden=false;
   $('r-range').textContent=range(r.from,r.to);
   $('r-email').textContent=r.email;
-  $('r-meta').textContent=plural(r.pkgTickets,'ticket')+' for '+money(r.pkgPrice)+(r.qty>1?(' × '+r.qty):'')+' · '+money(r.amount)+' · '+timeOf(r.createdAt);
+  $('r-meta').textContent=plural(r.pkgTickets,'ticket')+' for '+money(r.pkgPrice)+(r.qty>1?(' × '+r.qty):'')+' · '+money(r.amount)+(r.paid==='cash'?' cash':'')+' · '+timeOf(r.createdAt);
   $('r-say').textContent=(r.from===r.to?('Tell the buyer: “Your ticket is number '+r.from+'.”'):('Tell the buyer: “Your tickets are '+r.from+' to '+r.to+'.”'))+(mailOn()?' A confirmation email is on its way to them.':'');
 }
 function mailChip(s){
@@ -567,7 +610,7 @@ function renderLedger(){
     var who=document.createElement('span');who.className='who';
     var em=document.createElement('span');em.className='em';em.textContent=s.email||'';
     var meta=document.createElement('span');meta.className='meta';
-    meta.textContent=plural(s.pkgTickets,'ticket')+' for '+money(s.pkgPrice)+(s.qty>1?(' × '+s.qty):'')+' · '+timeOf(s.createdAt)+(s.seller?(' · by '+s.seller):'')+(s.voided?' · Voided':'');
+    meta.textContent=plural(s.pkgTickets,'ticket')+' for '+money(s.pkgPrice)+(s.qty>1?(' × '+s.qty):'')+(s.paid==='cash'?' · cash':'')+' · '+timeOf(s.createdAt)+(s.seller?(' · by '+s.seller):'')+(s.voided?' · Voided':'');
     who.appendChild(em);who.appendChild(document.createElement('br'));who.appendChild(meta);
     var amt=document.createElement('span');amt.className='amt';amt.textContent=money(s.amount);
     li.appendChild(rng);li.appendChild(who);li.appendChild(amt);
@@ -678,9 +721,9 @@ function logSale(ev){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){errEl.textContent='Enter a valid email address.';errEl.hidden=false;$('email').focus();return}
   if(isDrawn()){errEl.textContent='Sales are closed. The winner has been drawn.';errEl.hidden=false;return}
   S.busy=true;setSaleBtn('Saving…');
-  api('/api/sales',{email:email,pkg:pkg,qty:qty,seller:sellerName()}).then(function(j){
+  api('/api/sales',{email:email,pkg:pkg,qty:qty,seller:sellerName(),paid:$('paid').value}).then(function(j){
     S.lastReceipt=j.sale;renderReceipt();applySnapshot(j.snapshot);
-    $('email').value='';$('pkg').value='0';$('qty').value='1';updateSummary();
+    $('email').value='';$('pkg').value='0';$('qty').value='1';$('paid').value='square';updateSummary();
     toast('Logged '+range(j.sale.from,j.sale.to)+' for '+j.sale.email);
   }).catch(function(e){errEl.textContent=errText(e);errEl.hidden=false;if(e.code==='closed')poll()})
   .then(function(){S.busy=false;setSaleBtn()});
@@ -699,6 +742,14 @@ function resendMail(s){api('/api/sales/'+s.id+'/resend',{}).then(function(j){app
 $('pkg').addEventListener('change',updateSummary);
 $('qty').addEventListener('change',updateSummary);
 $('sale-form').addEventListener('submit',logSale);
+$('cash-form').addEventListener('submit',function(ev){
+  ev.preventDefault();
+  var errEl=$('cash-error');errEl.hidden=true;
+  var amount=parseFloat($('cash-amount').value);
+  if(!(amount>0)){errEl.textContent='Enter a cash amount above zero.';errEl.hidden=false;$('cash-amount').focus();return}
+  var b=$('cash-btn');b.disabled=true;b.textContent='Saving…';
+  api('/api/cash',{amount:amount,note:$('cash-note').value.trim(),seller:sellerName()}).then(function(j){applySnapshot(j.snapshot);$('cash-amount').value='';$('cash-note').value='';toast('Added '+money(amount)+' cash')}).catch(function(e){errEl.textContent=errText(e);errEl.hidden=false}).then(function(){b.disabled=false;b.textContent='Add cash'});
+});
 $('r-close').onclick=function(){S.lastReceipt=null;renderReceipt()};
 $('ledger-filter').addEventListener('input',function(){S.filter=this.value;renderLedger()});
 $('draw-btn').onclick=function(){
