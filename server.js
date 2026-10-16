@@ -446,9 +446,11 @@ async function pullSquare() {
   const since = getS('fund_square_since', '') || FUND_DEFAULT_SINCE;
   const onlyLoc = getS('fund_square_location', '');
   // ListPayments defaults to the seller's MAIN location only, so walk every active location explicitly.
+  let merchant = '';
+  try { const m = await fetchJson('https://connect.squareup.com/v2/merchants/me', H); merchant = (m.merchant && (m.merchant.business_name || m.merchant.id)) || ''; } catch (e) { merchant = ''; }
   const locs = await fetchJson('https://connect.squareup.com/v2/locations', H);
-  const locations = (locs.locations || []).filter(l => !onlyLoc || l.id === onlyLoc).filter(l => (l.status || 'ACTIVE') === 'ACTIVE');
-  if (!locations.length) throw new Error('No active Square locations visible to this token');
+  const locations = (locs.locations || []).filter(l => !onlyLoc || l.id === onlyLoc); // inactive locations included: old events may sit there
+  if (!locations.length) throw new Error('No Square locations visible to this token');
   let cents = 0, count = 0; const perLocation = [];
   for (const l of locations) {
     let lc = 0, ln = 0, cursor = '';
@@ -463,9 +465,9 @@ async function pullSquare() {
       }
       if (!j.cursor) break; cursor = j.cursor;
     }
-    cents += lc; count += ln; perLocation.push({ id: l.id, name: l.name || l.id, amount: lc / 100, count: ln });
+    cents += lc; count += ln; perLocation.push({ id: l.id, name: l.name || l.id, status: l.status || 'ACTIVE', amount: lc / 100, count: ln });
   }
-  return { amount: cents / 100, count, since, locations: perLocation };
+  return { amount: cents / 100, count, since, locations: perLocation, merchant };
 }
 let fundBusy = null, fundLastRun = 0;
 function refreshFund(force) {
@@ -502,7 +504,7 @@ function fundSnapshot(saleTotals) {
   return {
     total: beforeExpenses - expenses, beforeExpenses, expenses, raffleInSquare,
     eventbrite: { amount: ebAmount, source: ovEb !== null ? 'manual' : (typeof eb.amount === 'number' ? 'api' : 'none'), at: eb.at || null, error: eb.error || null, orders: eb.orders || 0, base: eb.base, gross: eb.gross, fees: eb.fees, tax: eb.tax, measure: getS('fund_eventbrite_measure', 'base'), eventName: eb.eventName || getS('fund_eventbrite_event_name', ''), connected: !!getS('fund_eventbrite_token', '') },
-    square: { amount: sqAmount, source: ovSq !== null ? 'manual' : (typeof sq.amount === 'number' ? 'api' : 'none'), at: sq.at || null, error: sq.error || null, count: sq.count || 0, locations: sq.locations || [], since: getS('fund_square_since', '') || FUND_DEFAULT_SINCE, connected: !!getS('fund_square_token', ''), onsite },
+    square: { amount: sqAmount, source: ovSq !== null ? 'manual' : (typeof sq.amount === 'number' ? 'api' : 'none'), at: sq.at || null, error: sq.error || null, count: sq.count || 0, locations: sq.locations || [], merchant: sq.merchant || '', since: getS('fund_square_since', '') || FUND_DEFAULT_SINCE, connected: !!getS('fund_square_token', ''), onsite },
     mcgill: { amount: mcAmount, source: ovMc !== null ? 'manual' : 'none', url: process.env.MCGILL_URL || 'https://crowdfunding.mcgill.ca/ui/main/p/montrealelite2026' },
     raffle: { gross: raffleGross, half: raffleHalf },
   };
