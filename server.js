@@ -162,10 +162,12 @@ function snapshot() {
   const sales = listSales();
   const state = readState();
   const wm = q.winnerMails.get();
+  const t = totals(sales);
   return {
     version: Number(getS('version', '1')),
     state: Object.assign(state, { winnerMail: wm ? { status: wm.status, sentAt: wm.sent_at, error: wm.last_error, to: wm.to_email } : null }),
-    sales, totals: totals(sales),
+    sales, totals: t,
+    fund: fundSnapshot(t), fundSettings: fundSettingsView(),
     config: { eventName: EVENT_NAME, eventDate: EVENT_DATE, licence: LICENCE_TEXT, packages: PACKAGES, maxQty: MAX_QTY, emailProvider: EMAIL_PROVIDER, publicUrl: PUBLIC_URL },
   };
 }
@@ -386,6 +388,139 @@ function csv() {
   return lines.join('\r\n');
 }
 
+/* ---------------- fundraising total (Eventbrite + Square + online donations - expenses) ---------------- */
+const FUND_DEFAULT_SINCE = process.env.FUND_SQUARE_SINCE || '2026-10-16T00:00:00-04:00';
+if (getS('fund_expenses') === undefined) setS('fund_expenses', process.env.EXPENSES || '4000');
+if (getS('fund_raffle_in_square') === undefined) setS('fund_raffle_in_square', '1');
+if (getS('fund_eventbrite_token') === undefined && process.env.EVENTBRITE_TOKEN) setS('fund_eventbrite_token', process.env.EVENTBRITE_TOKEN);
+if (getS('fund_square_token') === undefined && process.env.SQUARE_TOKEN) setS('fund_square_token', process.env.SQUARE_TOKEN);
+const fundCache = (() => { try { return JSON.parse(getS('fund_cache', '{}')); } catch (e) { return {}; } })();
+const saveFundCache = () => setS('fund_cache', JSON.stringify(fundCache));
+const numOr = (v, d) => { const n = Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) && String(v).trim() !== '' ? n : d; };
+const overrideOf = key => { const v = getS(key, ''); return v === '' ? null : numOr(v, null); };
+
+async function fetchJson(url, headers) {
+  const r = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
+  const text = await r.text();
+  if (!r.ok) throw new Error(r.status + ' ' + text.slice(0, 160).replace(/\s+/g, ' '));
+  return JSON.parse(text);
+}
+async function pullEventbrite() {
+  const token = getS('fund_eventbrite_token', '');
+  if (!token) return null;
+  const H = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
+  const base = 'https://www.eventbriteapi.com/v3';
+  let eventId = getS('fund_eventbrite_event_id', '');
+  if (!eventId) {
+    const orgs = await fetchJson(base + '/users/me/organizations/', H);
+    const candidates = [];
+    for (const o of (orgs.organizations || [])) {
+      const ev = await fetchJson(base + '/organizations/' + o.id + '/events/?order_by=start_desc&page_size=50&status=live,started,ended,completed', H);
+      for (const e of (ev.events || [])) candidates.push(e);
+    }
+    const pick = candidates.find(e => /casino/i.test((e.name && e.name.text) || '')) || candidates[0];
+    if (!pick) throw new Error('No events found on this Eventbrite account');
+    eventId = pick.id; setS('fund_eventbrite_event_id', eventId); setS('fund_eventbrite_event_name', (pick.name && pick.name.text) || '');
+  }
+  let base_cents = 0, gross_cents = 0, tax_cents = 0, fee_cents = 0, orders = 0, cont = '';
+  for (let page = 0; page < 50; page++) {
+    const j = await fetchJson(base + '/events/' + eventId + '/orders/?page_size=200' + (cont ? '&continuation=' + encodeURIComponent(cont) : ''), H);
+    for (const o of (j.orders || [])) {
+      if (String(o.status || 'placed').toLowerCase() !== 'placed') continue; // skips refunded / cancelled orders
+      const c = o.costs || {};
+      const v = k => Number((c[k] && c[k].value) || 0);
+      base_cents += v('base_price'); gross_cents += v('gross'); tax_cents += v('tax'); fee_cents += v('eventbrite_fee') + v('payment_fee');
+      orders++;
+    }
+    if (!(j.pagination && j.pagination.has_more_items && j.pagination.continuation)) break;
+    cont = j.pagination.continuation;
+  }
+  const measure = getS('fund_eventbrite_measure', 'base');
+  const amount = measure === 'gross' ? gross_cents / 100 : base_cents / 100;
+  return { amount, base: base_cents / 100, gross: gross_cents / 100, tax: tax_cents / 100, fees: fee_cents / 100, measure, orders, eventId, eventName: getS('fund_eventbrite_event_name', '') };
+}
+async function pullSquare() {
+  const token = getS('fund_square_token', '');
+  if (!token) return null;
+  const H = { Authorization: 'Bearer ' + token, Accept: 'application/json', 'Square-Version': '2025-01-23' };
+  const since = getS('fund_square_since', '') || FUND_DEFAULT_SINCE;
+  const loc = getS('fund_square_location', '');
+  let cents = 0, count = 0, cursor = '';
+  for (let page = 0; page < 50; page++) {
+    const url = 'https://connect.squareup.com/v2/payments?sort_order=ASC&limit=100&begin_time=' + encodeURIComponent(new Date(since).toISOString()) + (loc ? '&location_id=' + encodeURIComponent(loc) : '') + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+    const j = await fetchJson(url, H);
+    for (const p of (j.payments || [])) {
+      if (p.status !== 'COMPLETED') continue;
+      const amt = Number((p.amount_money && p.amount_money.amount) || 0);
+      const refunded = Number((p.refunded_money && p.refunded_money.amount) || 0);
+      cents += amt - refunded; count++;
+    }
+    if (!j.cursor) break; cursor = j.cursor;
+  }
+  return { amount: cents / 100, count, since };
+}
+let fundBusy = null, fundLastRun = 0;
+function refreshFund(force) {
+  if (fundBusy) return fundBusy;
+  if (!force && Date.now() - fundLastRun < 15000) return Promise.resolve();
+  fundLastRun = Date.now();
+  fundBusy = (async () => {
+    for (const [key, fn] of [['eventbrite', pullEventbrite], ['square', pullSquare]]) {
+      try {
+        const r = await fn();
+        if (r === null) { if (fundCache[key] && fundCache[key].source === 'api') delete fundCache[key]; continue; }
+        fundCache[key] = Object.assign({ source: 'api', at: nowIso(), error: null }, r);
+      } catch (e) {
+        fundCache[key] = Object.assign({}, fundCache[key] || {}, { error: String(e.message).slice(0, 200), errorAt: nowIso() });
+        log('fund pull failed', { source: key, error: e.message });
+      }
+    }
+    saveFundCache(); bump();
+  })().finally(() => { fundBusy = null; });
+  return fundBusy;
+}
+setInterval(() => { if (getS('fund_eventbrite_token', '') || getS('fund_square_token', '')) refreshFund(false); }, 120000).unref();
+function fundSnapshot(saleTotals) {
+  const expenses = numOr(getS('fund_expenses', '4000'), 0);
+  const raffleInSquare = getS('fund_raffle_in_square', '1') === '1';
+  const ovEb = overrideOf('fund_override_eventbrite'), ovSq = overrideOf('fund_override_square'), ovMc = overrideOf('fund_override_mcgill');
+  const eb = fundCache.eventbrite || {}, sq = fundCache.square || {};
+  const ebAmount = ovEb !== null ? ovEb : (typeof eb.amount === 'number' ? eb.amount : 0);
+  const sqAmount = ovSq !== null ? ovSq : (typeof sq.amount === 'number' ? sq.amount : 0);
+  const mcAmount = ovMc !== null ? ovMc : 0;
+  const raffleGross = saleTotals.gross, raffleHalf = raffleGross / 2;
+  const onsite = raffleInSquare ? Math.max(0, sqAmount - raffleGross) : sqAmount;
+  const beforeExpenses = ebAmount + onsite + mcAmount + raffleHalf;
+  return {
+    total: beforeExpenses - expenses, beforeExpenses, expenses, raffleInSquare,
+    eventbrite: { amount: ebAmount, source: ovEb !== null ? 'manual' : (typeof eb.amount === 'number' ? 'api' : 'none'), at: eb.at || null, error: eb.error || null, orders: eb.orders || 0, base: eb.base, gross: eb.gross, fees: eb.fees, tax: eb.tax, measure: getS('fund_eventbrite_measure', 'base'), eventName: eb.eventName || getS('fund_eventbrite_event_name', ''), connected: !!getS('fund_eventbrite_token', '') },
+    square: { amount: sqAmount, source: ovSq !== null ? 'manual' : (typeof sq.amount === 'number' ? 'api' : 'none'), at: sq.at || null, error: sq.error || null, count: sq.count || 0, since: getS('fund_square_since', '') || FUND_DEFAULT_SINCE, connected: !!getS('fund_square_token', ''), onsite },
+    mcgill: { amount: mcAmount, source: ovMc !== null ? 'manual' : 'none', url: process.env.MCGILL_URL || 'https://crowdfunding.mcgill.ca/ui/main/p/montrealelite2026' },
+    raffle: { gross: raffleGross, half: raffleHalf },
+  };
+}
+function saveFundSettings(ip, body) {
+  checkPin(ip, body.pin);
+  const has = k => Object.prototype.hasOwnProperty.call(body, k);
+  const setOrClear = (key, v) => { if (v == null || String(v).trim() === '') setS(key, ''); else setS(key, String(v).trim()); };
+  if (has('eventbriteToken')) { setOrClear('fund_eventbrite_token', body.eventbriteToken); setS('fund_eventbrite_event_id', ''); setS('fund_eventbrite_event_name', ''); if (!String(body.eventbriteToken || '').trim()) delete fundCache.eventbrite; }
+  if (has('squareToken')) { setOrClear('fund_square_token', body.squareToken); if (!String(body.squareToken || '').trim()) delete fundCache.square; }
+  if (has('squareSince')) { const d = new Date(String(body.squareSince || '')); setS('fund_square_since', isNaN(d) ? '' : d.toISOString()); }
+  if (has('squareLocation')) setOrClear('fund_square_location', body.squareLocation);
+  if (has('eventbriteMeasure')) { const mv = body.eventbriteMeasure === 'gross' ? 'gross' : 'base'; setS('fund_eventbrite_measure', mv); if (fundCache.eventbrite && typeof fundCache.eventbrite[mv] === 'number') fundCache.eventbrite.amount = fundCache.eventbrite[mv]; }
+  if (has('expenses')) setS('fund_expenses', String(numOr(body.expenses, 0)));
+  if (has('raffleInSquare')) setS('fund_raffle_in_square', body.raffleInSquare ? '1' : '0');
+  for (const k of ['eventbrite', 'square', 'mcgill']) {
+    const f = 'override' + k[0].toUpperCase() + k.slice(1);
+    if (has(f)) { const v = String(body[f] == null ? '' : body[f]).trim(); if (v === '') setS('fund_override_' + k, ''); else { const n = numOr(v, null); if (n === null || n < 0) throw new HttpError(400, 'badamount', 'Amounts must be numbers.'); setS('fund_override_' + k, String(n)); } }
+  }
+  saveFundCache(); bump();
+  log('fund settings saved', { ip, keys: Object.keys(body).filter(k => k !== 'pin') });
+}
+function fundSettingsView() {
+  return { eventbriteConnected: !!getS('fund_eventbrite_token', ''), eventbriteMeasure: getS('fund_eventbrite_measure', 'base'), squareConnected: !!getS('fund_square_token', ''), squareSince: getS('fund_square_since', '') || FUND_DEFAULT_SINCE, squareLocation: getS('fund_square_location', ''), expenses: numOr(getS('fund_expenses', '4000'), 0), raffleInSquare: getS('fund_raffle_in_square', '1') === '1', overrides: { eventbrite: getS('fund_override_eventbrite', ''), square: getS('fund_override_square', ''), mcgill: getS('fund_override_mcgill', '') }, eventbriteEvent: getS('fund_eventbrite_event_name', '') };
+}
+
 /* ---------------- pages ---------------- */
 const APP_HTML = fs.readFileSync(path.join(__dirname, 'app.html'), 'utf8');
 function gatePage(error) {
@@ -475,6 +610,8 @@ const server = http.createServer(async (req, res) => {
       if (p === '/api/winner-email') { pinGuard(); emailWinner(ip, body.pin); return json(res, 200, { ok: true, snapshot: snapshot() }); }
       if (p === '/api/reset') { pinGuard(); resetRaffle(ip, body.pin, body.word); return json(res, 200, { ok: true, snapshot: snapshot() }); }
       if (p === '/api/seller-pin') { pinGuard(); changeSellerPin(ip, body.pin, body.newPin); return json(res, 200, { ok: true, snapshot: snapshot() }, { 'Set-Cookie': cookieFor(req, issueSession(), SESSION_DAYS * 86400) }); }
+      if (p === '/api/fund-settings') { pinGuard(); saveFundSettings(ip, body); await Promise.race([refreshFund(true), new Promise(r => setTimeout(r, 25000))]); return json(res, 200, { ok: true, snapshot: snapshot() }); }
+      if (p === '/api/fund-refresh') { await Promise.race([refreshFund(!!body.force), new Promise(r => setTimeout(r, 25000))]); return json(res, 200, { ok: true, snapshot: snapshot() }); }
       throw new HttpError(404, 'notfound', 'Not found.');
     }
     return html(res, 404, gatePage(''));
@@ -488,5 +625,6 @@ server.listen(PORT, HOST, () => {
   const base = PUBLIC_URL || ('http://localhost:' + PORT);
   log('raffle server up', { port: PORT, db: DB_PATH, emailProvider: EMAIL_PROVIDER, entry: base + '/', legacyLink: base + '/s/' + SELLER_TOKEN, adminPin: process.env.ADMIN_PIN ? '(from env)' : ('generated: ' + ADMIN_PIN + ' (set ADMIN_PIN to choose your own)') });
   setTimeout(processMails, 2000);
+  setTimeout(() => refreshFund(true), 3000);
 });
 process.on('SIGTERM', () => { server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); });

@@ -132,12 +132,37 @@ hr.rule{border:0;border-top:1px solid var(--line);margin:16px 0}
 .danger-zone{border:1px solid rgba(232,112,92,.45);border-radius:10px;padding:12px}
 .danger-zone h3{margin:0 0 6px;font:700 17px/1.1 var(--display);text-transform:uppercase;letter-spacing:.06em;color:var(--danger)}
 footer{color:var(--muted);font-size:12px;text-align:center;padding-top:8px}
+/* fundraising breakdown */
+.bd{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:4px}
+.bd li{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;color:var(--muted)}
+.bd li:last-child{border-bottom:0}
+.bd li .v{font:700 20px/1 var(--display);font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
+.bd li.neg .v{color:var(--danger)}
+.bd li.sum{border-top:1px solid var(--line-strong);margin-top:4px;padding-top:10px;color:var(--fg)}
+.bd li.sum .v{color:var(--gold-bright);font-size:26px}
+.big-total{font:800 clamp(44px,9vw,72px)/1 var(--display);color:var(--gold-bright);font-variant-numeric:tabular-nums;margin:4px 0 2px;overflow-wrap:anywhere}
+.fresh{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+.fresh i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:5px;vertical-align:middle}
+.fresh i.warn{background:var(--warn)}.fresh i.off{background:var(--danger)}
+.stage-panels{display:none}
+.spanel{padding:22px 20px}
+.spanel .eyebrow{font-size:clamp(12px,1.4vw,18px)}
+.spanel .big-total{font-size:clamp(64px,11vw,150px)}
+.spanel .tally{margin-top:14px;border:0;background:transparent;gap:12px}
+.spanel .tally>div{background:rgba(0,0,0,.14);border:1px solid var(--line);border-radius:12px}
+.spanel .bd li{font-size:clamp(14px,1.5vw,22px)}
+.spanel .bd li .v{font-size:clamp(22px,2.4vw,36px)}
+.spanel .bd li.sum .v{font-size:clamp(28px,3vw,44px)}
 body.stage .hide-on-stage{display:none!important}
-body.stage .wrap{max-width:1100px;grid-template-columns:1fr}
-body.stage .tally .v{font-size:clamp(44px,10vw,110px)}
-body.stage .tally .k{font-size:clamp(12px,1.6vw,18px)}
-body.stage h1{font-size:clamp(40px,8vw,96px)}
-body.stage .winner .num{font-size:clamp(110px,26vw,260px)}
+body.stage .wrap{max-width:1500px;grid-template-columns:1fr}
+body.stage .stage-panels{display:grid;grid-template-columns:1fr;gap:16px}
+@media (min-width:900px){body.stage .stage-panels{grid-template-columns:1fr 1fr;align-items:stretch}}
+body.stage .masthead .tally{display:none}
+body.stage .tally .v{font-size:clamp(40px,6.5vw,96px)}
+body.stage .tally .k{font-size:clamp(12px,1.4vw,18px)}
+body.stage .tally .s{font-size:clamp(12px,1.2vw,16px)}
+body.stage h1{font-size:clamp(40px,7vw,88px)}
+body.stage .winner .num{font-size:clamp(110px,24vw,240px)}
 body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -169,6 +194,23 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
     <div class="notice bad" id="conn-banner" hidden><b>Can't reach the raffle server.</b> Check the connection. The page keeps retrying on its own.</div>
     <div class="notice bad" id="token-banner" hidden><b>Your sign-in has expired.</b> Taking you back to the PIN screen…</div>
     <div class="notice" id="mail-banner" hidden><b>Email sending is off on this server.</b> Buyers won't get a confirmation until it's configured.</div>
+  </div>
+
+  <div class="stage-panels full" id="stage-panels">
+    <section class="card spanel" id="sp-raffle">
+      <div class="eyebrow">50/50 Raffle</div>
+      <div class="tally">
+        <div><div class="k">Tickets sold</div><div class="v" id="sp-tickets">—</div><div class="s" id="sp-buyers">&nbsp;</div></div>
+        <div><div class="k">Pot</div><div class="v" id="sp-raised">—</div><div class="s">total in the drum</div></div>
+        <div><div class="k">Winner takes</div><div class="v gold" id="sp-half">—</div><div class="s">half the pot</div></div>
+      </div>
+      <p class="fresh" id="sp-raffle-note">Buy your tickets at the raffle table. The draw happens at the end of the night.</p>
+    </section>
+    <section class="card spanel" id="sp-neuro">
+      <div class="eyebrow">Raised for The Neuro tonight</div>
+      <div class="big-total" id="sp-total">—</div>
+      <ul class="bd" id="sp-bd"></ul>
+    </section>
   </div>
 
   <section class="card winner full" id="winner" hidden>
@@ -254,6 +296,13 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
       <p class="fine" id="draw-note"></p>
     </section>
 
+    <section class="card hide-on-stage" id="neuro-card">
+      <h2>Raised for The Neuro <button class="linkbtn" id="fund-refresh" type="button">Refresh</button></h2>
+      <div class="big-total" id="np-total">—</div>
+      <ul class="bd" id="np-bd"></ul>
+      <p class="fresh" id="np-fresh"></p>
+    </section>
+
     <section class="card hide-on-stage" id="settings" hidden>
       <h2>Settings</h2>
       <div class="kv"><span class="k">Seller name on this phone</span><span class="v"><input id="seller-name" type="text" autocomplete="off" placeholder="Optional, e.g. Marie" style="min-height:36px;font-size:14px"></span></div>
@@ -271,6 +320,30 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
       </div>
       <button class="btn btn-sm" id="sp-save" type="button">Save seller PIN</button>
       <div class="msg" id="sp-msg" hidden></div>
+      <hr class="rule">
+      <h3 style="margin:0 0 8px;font:700 17px/1.1 var(--display);text-transform:uppercase;letter-spacing:.06em">Fundraising total</h3>
+      <p class="lede" style="margin-bottom:10px">Feeds the "Raised for The Neuro" number on the stage. Eventbrite and Square pull live every two minutes once their tokens are saved. Leave a token blank to keep the current one, or type <b>clear</b> to disconnect.</p>
+      <div class="field"><label for="f-eb">Eventbrite private token <span id="f-eb-status" style="font-weight:400"></span></label><input id="f-eb" type="password" autocomplete="off" placeholder="paste token"></div>
+      <div class="field"><label for="f-measure">Count Eventbrite tickets as</label><select id="f-measure"><option value="base">What you receive (ticket price before Eventbrite fees and tax)</option><option value="gross">What attendees paid (including fees and tax)</option></select></div>
+      <div class="field"><label for="f-sq">Square access token <span id="f-sq-status" style="font-weight:400"></span></label><input id="f-sq" type="password" autocomplete="off" placeholder="paste token"></div>
+      <div class="row2" style="grid-template-columns:1fr 1fr">
+        <div class="field"><label for="f-since">Count Square payments from</label><input id="f-since" type="datetime-local"></div>
+        <div class="field"><label for="f-mc">Online donations (McGill page)</label><input id="f-mc" type="number" inputmode="decimal" step="0.01" min="0" placeholder="e.g. 6050"></div>
+      </div>
+      <div class="row2" style="grid-template-columns:1fr 1fr">
+        <div class="field"><label for="f-exp">Expenses to subtract</label><input id="f-exp" type="number" inputmode="decimal" step="0.01" min="0"></div>
+        <div class="field"><label for="f-pin">Admin PIN</label><input id="f-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"></div>
+      </div>
+      <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="f-ris" type="checkbox" style="width:18px;min-height:18px;margin:0"> The Square total includes the 50/50 ticket sales (they are subtracted so nothing counts twice)</label></div>
+      <details style="margin-bottom:12px"><summary style="cursor:pointer;color:var(--muted);font-size:14px">Manual overrides (if a connection isn't working)</summary>
+        <div class="row2" style="grid-template-columns:1fr 1fr;margin-top:10px">
+          <div class="field"><label for="f-ov-eb">Eventbrite amount</label><input id="f-ov-eb" type="number" inputmode="decimal" step="0.01" min="0" placeholder="blank = live"></div>
+          <div class="field"><label for="f-ov-sq">Square amount</label><input id="f-ov-sq" type="number" inputmode="decimal" step="0.01" min="0" placeholder="blank = live"></div>
+        </div>
+      </details>
+      <p class="fine" style="margin:0 0 10px">Donations page: <a href="https://crowdfunding.mcgill.ca/ui/main/p/montrealelite2026" target="_blank" rel="noopener" style="color:var(--gold-bright)">crowdfunding.mcgill.ca</a>. Read the "Achieved" number there and type it above.</p>
+      <button class="btn btn-sm" id="f-save" type="button">Save fundraising settings</button>
+      <div class="msg" id="f-msg" hidden></div>
       <hr class="rule">
       <div class="danger-zone">
         <h3>Reset the raffle</h3>
@@ -349,7 +422,7 @@ function isDrawn(){return !!(S.raffle&&S.raffle.status==='drawn')}
 function mailOn(){return !!(S.config&&S.config.emailProvider&&S.config.emailProvider!=='none')}
 function applySnapshot(snap){
   if(!snap||snap.unchanged)return;
-  S.version=snap.version;S.raffle=snap.state;S.sales=snap.sales||[];S.totals=snap.totals||null;S.config=snap.config||S.config;S.loaded=true;S.failures=0;S.unauthorized=false;
+  S.version=snap.version;S.raffle=snap.state;S.sales=snap.sales||[];S.totals=snap.totals||null;S.config=snap.config||S.config;S.fund=snap.fund||S.fund;S.fundSettings=snap.fundSettings||S.fundSettings;S.loaded=true;S.failures=0;S.unauthorized=false;
   if(!isDrawn())S.sawOpen=true;
   renderAll();setLive();
 }
@@ -366,7 +439,45 @@ function poll(){
 }
 
 /* ---------- render ---------- */
-function renderAll(){renderHeader();renderTally();renderForm();renderLedger();renderDraw();renderWinner();renderSettings();renderNotices();renderFooter()}
+function renderAll(){renderHeader();renderTally();renderForm();renderLedger();renderDraw();renderWinner();renderSettings();renderNotices();renderFooter();renderFund()}
+function fillBreakdown(el,f){
+  el.textContent='';
+  var rows=[
+    ['Event tickets (Eventbrite)',f.eventbrite.amount,''],
+    ['On-site sales (Square)'+(f.raffleInSquare?', after the 50/50':''),f.square.onsite,''],
+    ['50/50 share to The Neuro',f.raffle.half,''],
+    ['Online donations (McGill)',f.mcgill.amount,''],
+    ['Expenses',-f.expenses,'neg'],
+    ['Total',f.total,'sum']
+  ];
+  rows.forEach(function(r){var li=document.createElement('li');li.className=r[2];var k=document.createElement('span');k.textContent=r[0];var v=document.createElement('span');v.className='v';v.textContent=(r[1]<0?'−':'')+money(Math.abs(r[1]));li.appendChild(k);li.appendChild(v);el.appendChild(li)});
+}
+function srcText(name,p){
+  if(p.source==='manual')return name+': entered manually';
+  if(p.source==='api')return name+': updated '+timeOf(p.at)+(p.error?' (last pull failed)':'');
+  return name+': '+(p.connected?(p.error?'error, see Settings':'connecting…'):'not connected');
+}
+function renderFund(){
+  var f=S.fund;if(!f)return;
+  var t=totals();
+  $('sp-tickets').textContent=t.tickets.toLocaleString('en-CA');$('sp-buyers').textContent=t.buyers?('from '+plural(t.buyers,'buyer')):'no sales yet';
+  $('sp-raised').textContent=money(t.gross);$('sp-half').textContent=money(t.half);
+  $('sp-raffle-note').textContent=isDrawn()?('Drawn '+timeOf(S.raffle.draw&&S.raffle.draw.drawnAt)+'. Thank you to everyone who played.'):'Buy your tickets at the raffle table. The draw happens at the end of the night.';
+  $('sp-total').textContent=money(f.total);$('np-total').textContent=money(f.total);
+  fillBreakdown($('sp-bd'),f);fillBreakdown($('np-bd'),f);
+  var fr=$('np-fresh');fr.textContent='';
+  [['Eventbrite',f.eventbrite],['Square',f.square],['Donations',f.mcgill]].forEach(function(x){var s=document.createElement('span');var i=document.createElement('i');i.className=x[1].source==='api'||x[1].source==='manual'?(x[1].error?'warn':''):'off';s.appendChild(i);s.appendChild(document.createTextNode(srcText(x[0],x[1])+'  '));fr.appendChild(s)});
+  var fs=S.fundSettings;if(!fs)return;
+  $('f-eb-status').textContent=fs.eventbriteConnected?('— connected'+(fs.eventbriteEvent?(' to “'+fs.eventbriteEvent+'”'):'')+(f.eventbrite.source==='api'?(' · '+plural(f.eventbrite.orders||0,'order')+', '+money(f.eventbrite.base||0)+' before fees / '+money(f.eventbrite.gross||0)+' paid'):'')+(f.eventbrite.error?(' · '+f.eventbrite.error):'')):'— not connected';
+  $('f-sq-status').textContent=fs.squareConnected?('— connected, '+plural(f.square.count||0,'payment')+' counted'+(f.square.error?(' · '+f.square.error):'')):'— not connected';
+  var key=JSON.stringify(fs);
+  if(S.fundFormKey!==key&&($('settings').hidden||!S.fundFormKey)){
+    S.fundFormKey=key;
+    $('f-mc').value=fs.overrides.mcgill;$('f-exp').value=fs.expenses;$('f-ris').checked=!!fs.raffleInSquare;$('f-measure').value=fs.eventbriteMeasure||'base';
+    $('f-ov-eb').value=fs.overrides.eventbrite;$('f-ov-sq').value=fs.overrides.square;
+    try{var d=new Date(fs.squareSince);var pad=function(n){return String(n).padStart(2,'0')};$('f-since').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())}catch(e){}
+  }
+}
 function renderHeader(){
   var pill=$('status-pill');
   if(!S.loaded){pill.textContent='Loading';pill.className='pill';return}
@@ -621,6 +732,17 @@ $('reset-btn').onclick=function(){
   api('/api/reset',{pin:$('reset-pin').value.trim(),word:'RESET'}).then(function(j){S.lastReceipt=null;S.revealedAt=null;renderReceipt();applySnapshot(j.snapshot);m.className='msg good';m.textContent='Raffle reset. Ticket numbers start again at #1.';$('reset-pin').value='';$('reset-word').value=''}).catch(function(e){m.textContent=errText(e)});
 };
 $('stage-btn').onclick=function(){S.stage=!S.stage;try{localStorage.setItem('stage',S.stage?'1':'0')}catch(e){}applyStage()};
+$('fund-refresh').onclick=function(){var b=$('fund-refresh');b.textContent='Refreshing…';api('/api/fund-refresh',{force:true}).then(function(j){applySnapshot(j.snapshot);toast('Totals refreshed')}).catch(function(e){toast(errText(e),4000)}).then(function(){b.textContent='Refresh'})};
+$('f-save').onclick=function(){
+  var m=$('f-msg');m.hidden=false;m.className='msg';m.textContent='Saving and pulling the latest numbers…';
+  var body={pin:$('f-pin').value.trim(),expenses:$('f-exp').value,raffleInSquare:$('f-ris').checked,eventbriteMeasure:$('f-measure').value,overrideMcgill:$('f-mc').value,overrideEventbrite:$('f-ov-eb').value,overrideSquare:$('f-ov-sq').value};
+  var eb=$('f-eb').value.trim(),sq=$('f-sq').value.trim();
+  if(eb)body.eventbriteToken=(eb.toLowerCase()==='clear')?'':eb;
+  if(sq)body.squareToken=(sq.toLowerCase()==='clear')?'':sq;
+  if($('f-since').value){var d=new Date($('f-since').value);if(!isNaN(d))body.squareSince=d.toISOString()}
+  var btn=$('f-save');btn.disabled=true;
+  api('/api/fund-settings',body).then(function(j){S.fundFormKey=null;applySnapshot(j.snapshot);m.className='msg good';var f=S.fund;m.textContent='Saved. Total now '+money(f.total)+'.'+(f.eventbrite.error?(' Eventbrite: '+f.eventbrite.error):'')+(f.square.error?(' Square: '+f.square.error):'');$('f-eb').value='';$('f-sq').value='';$('f-pin').value=''}).catch(function(e){m.textContent=errText(e)}).then(function(){btn.disabled=false});
+};
 $('export-btn').href=TOKEN?('/s/'+TOKEN+'/export.csv'):'/app/export.csv';
 updateSummary();
 try{if(location.hash==='#stage'||localStorage.getItem('stage')==='1')S.stage=true}catch(e){}
