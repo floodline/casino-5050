@@ -144,26 +144,32 @@ footer{color:var(--muted);font-size:12px;text-align:center;padding-top:8px}
 .fresh{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
 .fresh i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:5px;vertical-align:middle}
 .fresh i.warn{background:var(--warn)}.fresh i.off{background:var(--danger)}
-.stage-panels{display:none}
-.spanel{padding:22px 20px}
-.spanel .eyebrow{font-size:clamp(12px,1.4vw,18px)}
-.spanel .big-total{font-size:clamp(64px,11vw,150px)}
-.spanel .tally{margin-top:14px;border:0;background:transparent;gap:12px}
-.spanel .tally>div{background:rgba(0,0,0,.14);border:1px solid var(--line);border-radius:12px}
-.spanel .bd li{font-size:clamp(14px,1.5vw,22px)}
-.spanel .bd li .v{font-size:clamp(22px,2.4vw,36px)}
-.spanel .bd li.sum .v{font-size:clamp(28px,3vw,44px)}
-body.stage .hide-on-stage{display:none!important}
-body.stage .wrap{max-width:1500px;grid-template-columns:1fr}
-body.stage .stage-panels{display:grid;grid-template-columns:1fr;gap:16px}
-@media (min-width:900px){body.stage .stage-panels{grid-template-columns:1fr 1fr;align-items:stretch}}
-body.stage .masthead .tally{display:none}
-body.stage .tally .v{font-size:clamp(40px,6.5vw,96px)}
-body.stage .tally .k{font-size:clamp(12px,1.4vw,18px)}
-body.stage .tally .s{font-size:clamp(12px,1.2vw,16px)}
-body.stage h1{font-size:clamp(40px,7vw,88px)}
-body.stage .winner .num{font-size:clamp(110px,24vw,240px)}
-body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
+/* ---- Stage view: a TV screen. One title line, 50/50 left, total raised right. Sizes in vw/vh so 1080p and 4K look the same. ---- */
+#stage{display:none}
+body.stage{padding:0;overflow:hidden;cursor:default}
+body.stage.idle{cursor:none}
+body.stage .wrap{display:none}
+body.stage #stage{display:grid;position:fixed;inset:0;grid-template-rows:auto minmax(0,1fr);gap:3vh;padding:3.5vh 3.5vw;box-sizing:border-box;background:var(--felt) radial-gradient(120% 70% at 50% 0%,#134634 0%,var(--felt) 55%,var(--felt-deep) 100%) no-repeat}
+.st-top{display:flex;align-items:center;justify-content:space-between;gap:2vw;min-width:0}
+.st-title{font:800 min(5.4vw,8vh)/1 var(--display);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg);margin:0}
+.st-tools{display:flex;gap:.8vw;flex:none;transition:opacity .4s}
+body.stage.idle .st-tools{opacity:0}
+.st-tools .btn{width:auto;min-height:0;padding:1vh 1.4vw;font-size:min(1.15vw,2.2vh);background:rgba(0,0,0,.28);border:1px solid var(--line-strong);border-radius:.9vh}
+.st-grid{display:grid;grid-template-columns:1fr 1fr;gap:3vw;min-height:0}
+.st-panel{border:1px solid var(--line);border-radius:2.2vh;background:rgba(0,0,0,.18);padding:4vh 3vw;display:flex;flex-direction:column;justify-content:center;gap:3.2vh;min-width:0;min-height:0;box-shadow:var(--shadow)}
+.st-panel.right{background:linear-gradient(160deg,#1b4f39,#0f3527);border-color:rgba(216,179,90,.5);box-shadow:0 0 0 .6vh rgba(216,179,90,.10),var(--shadow)}
+.st-eyebrow{font:600 min(1.4vw,2.6vh)/1 var(--body);letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+.st-k{font:500 min(1.5vw,2.8vh)/1.2 var(--body);color:var(--muted);text-transform:uppercase;letter-spacing:.14em}
+.st-v{font:800 min(8vw,16vh)/1 var(--display);font-variant-numeric:tabular-nums;color:var(--fg);overflow-wrap:anywhere}
+.st-v.gold{color:var(--gold-bright)}
+.st-total{font:800 min(9.5vw,24vh)/1 var(--display);color:var(--gold-bright);font-variant-numeric:tabular-nums;letter-spacing:.01em;overflow-wrap:anywhere}
+.st-live{display:inline-flex;align-items:center;gap:.9vw;font:600 min(1.3vw,2.4vh)/1 var(--body);letter-spacing:.2em;text-transform:uppercase;color:var(--ok)}
+.st-live i{width:1.1vw;height:1.1vw;min-width:10px;min-height:10px;border-radius:50%;background:var(--ok);animation:stpulse 1.8s ease-out infinite}
+.st-live.stale{color:var(--warn)}.st-live.stale i{background:var(--warn);animation:none}
+@keyframes stpulse{0%{box-shadow:0 0 0 0 rgba(127,211,154,.6)}70%{box-shadow:0 0 0 1.1vw rgba(127,211,154,0)}100%{box-shadow:0 0 0 0 rgba(127,211,154,0)}}
+.st-win{font:800 min(13vw,30vh)/1 var(--display);color:var(--gold-bright);font-variant-numeric:tabular-nums}
+.st-note{font:500 min(1.4vw,2.6vh)/1.4 var(--body);color:var(--muted)}
+@media (max-aspect-ratio:1/1){body.stage #stage .st-grid{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:3vh}.st-title{font-size:min(8vw,6vh)}.st-v{font-size:min(16vw,14vh)}.st-total{font-size:min(17vw,16vh)}}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -194,23 +200,6 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
     <div class="notice bad" id="conn-banner" hidden><b>Can't reach the raffle server.</b> Check the connection. The page keeps retrying on its own.</div>
     <div class="notice bad" id="token-banner" hidden><b>Your sign-in has expired.</b> Taking you back to the PIN screen…</div>
     <div class="notice" id="mail-banner" hidden><b>Email sending is off on this server.</b> Buyers won't get a confirmation until it's configured.</div>
-  </div>
-
-  <div class="stage-panels full" id="stage-panels">
-    <section class="card spanel" id="sp-raffle">
-      <div class="eyebrow">50/50 Raffle</div>
-      <div class="tally">
-        <div><div class="k">Tickets sold</div><div class="v" id="sp-tickets">—</div><div class="s" id="sp-buyers">&nbsp;</div></div>
-        <div><div class="k">Pot</div><div class="v" id="sp-raised">—</div><div class="s">total in the drum</div></div>
-        <div><div class="k">Winner takes</div><div class="v gold" id="sp-half">—</div><div class="s">half the pot</div></div>
-      </div>
-      <p class="fresh" id="sp-raffle-note">Buy your tickets at the raffle table. The draw happens at the end of the night.</p>
-    </section>
-    <section class="card spanel" id="sp-neuro">
-      <div class="eyebrow">Raised for The Neuro tonight</div>
-      <div class="big-total" id="sp-total">—</div>
-      <ul class="bd" id="sp-bd"></ul>
-    </section>
   </div>
 
   <section class="card winner full" id="winner" hidden>
@@ -381,6 +370,37 @@ body.stage .winner .em{font-size:clamp(22px,4vw,44px)}
   <footer class="full" id="footer"></footer>
 </div>
 
+<div id="stage" aria-live="polite">
+  <div class="st-top">
+    <h1 class="st-title" id="st-title">Casino Night For The Neuro 2026</h1>
+    <div class="st-tools">
+      <button class="btn" id="st-full" type="button">Full screen</button>
+      <button class="btn" id="st-exit" type="button">Exit stage view</button>
+    </div>
+  </div>
+  <div class="st-grid">
+    <section class="st-panel" id="st-left">
+      <div class="st-eyebrow">50/50 Raffle</div>
+      <div id="st-left-open">
+        <div class="st-k">Tickets sold</div>
+        <div class="st-v" id="st-tickets">—</div>
+        <div class="st-k" style="margin-top:3vh">Pot</div>
+        <div class="st-v gold" id="st-pot">—</div>
+      </div>
+      <div id="st-left-drawn" hidden>
+        <div class="st-k">Winning ticket</div>
+        <div class="st-win" id="st-win">#—</div>
+        <div class="st-note">See the raffle table to claim your prize.</div>
+      </div>
+    </section>
+    <section class="st-panel right" id="st-right">
+      <div class="st-eyebrow">Raised for The Neuro</div>
+      <div class="st-total" id="st-total">—</div>
+      <div class="st-live" id="st-live"><i></i><span id="st-live-text">Live</span></div>
+    </section>
+  </div>
+</div>
+
 <div class="overlay" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="m-title">
   <div class="modal">
     <h3 id="m-title"></h3>
@@ -410,7 +430,6 @@ function money(n){n=Number(n)||0;return new Intl.NumberFormat('en-CA',{style:'cu
 function timeOf(iso){try{return new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}catch(e){return ''}}
 function range(a,b){return a===b?('#'+a):('#'+a+'–#'+b)}
 function plural(n,w){return n+' '+w+(n===1?'':'s')}
-function maskEmail(e){e=String(e||'');var i=e.indexOf('@');if(i<1)return e;return e[0]+'•••'+e.slice(i)}
 function randomInt(n){var a=new Uint32Array(1),max=4294967296,lim=max-(max%n);do{crypto.getRandomValues(a)}while(a[0]>=lim);return a[0]%n}
 var toastTimer=null;
 function toast(msg,ms){var t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.hidden=true},ms||2800)}
@@ -500,14 +519,22 @@ function srcText(name,p){
   if(p.source==='api')return name+': updated '+timeOf(p.at)+(p.error?' (last pull failed)':'');
   return name+': '+(p.connected?(p.error?'error, see Settings':'connecting…'):'not connected');
 }
+function moneyWhole(n){return new Intl.NumberFormat('en-CA',{style:'currency',currency:'CAD',maximumFractionDigits:0}).format(Number(n)||0)}
+function renderStage(){
+  var t=totals();
+  if(S.config&&S.config.eventName)$('st-title').textContent=S.config.eventName;
+  $('st-tickets').textContent=S.loaded?t.tickets.toLocaleString('en-CA'):'—';
+  $('st-pot').textContent=S.loaded?moneyWhole(t.gross):'—';
+  $('st-total').textContent=(S.fund&&S.loaded)?moneyWhole(S.fund.total):'—';
+  var live=$('st-live');
+  if(S.failures>0){live.className='st-live stale';$('st-live-text').textContent='Reconnecting'}else{live.className='st-live';$('st-live-text').textContent='Live'}
+  $('st-left-open').hidden=isDrawn();$('st-left-drawn').hidden=!isDrawn();
+  $('st-full').textContent=document.fullscreenElement?'Exit full screen':'Full screen';
+}
 function renderFund(){
   var f=S.fund;if(!f)return;
-  var t=totals();
-  $('sp-tickets').textContent=t.tickets.toLocaleString('en-CA');$('sp-buyers').textContent=t.buyers?('from '+plural(t.buyers,'buyer')):'no sales yet';
-  $('sp-raised').textContent=money(t.gross);$('sp-half').textContent=money(t.half);
-  $('sp-raffle-note').textContent=isDrawn()?('Drawn '+timeOf(S.raffle.draw&&S.raffle.draw.drawnAt)+'. Thank you to everyone who played.'):'Buy your tickets at the raffle table. The draw happens at the end of the night.';
-  $('sp-total').textContent=money(f.total);$('np-total').textContent=money(f.total);
-  fillBreakdown($('sp-bd'),f);fillBreakdown($('np-bd'),f);
+  $('np-total').textContent=money(f.total);
+  fillBreakdown($('np-bd'),f);renderStage();
   var fr=$('np-fresh');fr.textContent='';
   [['Eventbrite',f.eventbrite],['Square',f.square],['Donations',f.mcgill]].forEach(function(x){var s=document.createElement('span');var i=document.createElement('i');i.className=x[1].source==='api'||x[1].source==='manual'?(x[1].error?'warn':''):'off';s.appendChild(i);s.appendChild(document.createTextNode(srcText(x[0],x[1])+'  '));fr.appendChild(s)});
   var fs=S.fundSettings;if(!fs)return;
@@ -534,6 +561,7 @@ function setLive(){
   if(S.failures>=3){el.className='live off';tx.textContent='Offline'}
   else if(S.failures>0){el.className='live stale';tx.textContent='Reconnecting'}
   else{el.className='live';tx.textContent='Live'}
+  if(S.stage)renderStage();
 }
 function renderTally(){
   if(!S.loaded)return;
@@ -658,20 +686,22 @@ function renderDraw(){
 }
 function renderWinner(){
   var p=$('winner');
-  if(!isDrawn()){p.hidden=true;return}
+  if(!isDrawn()){p.hidden=true;renderStage();return}
   var d=S.raffle.draw||{};
   p.hidden=false;
-  $('w-email').textContent=S.stage?maskEmail(d.email):(d.email||'');
+  $('w-email').textContent=d.email||'';
   $('w-meta').textContent='Drawn '+timeOf(d.drawnAt)+' · '+plural(d.pool||0,'ticket')+' in the drum · pot '+money(d.gross||0)+' · winner takes '+money((d.gross||0)/2);
   var wm=S.raffle.winnerMail,wmEl=$('w-mail');
   if(!mailOn()){wmEl.textContent='';$('w-email-btn').hidden=true}
   else{$('w-email-btn').hidden=false;wmEl.textContent=!wm?'The winner has not been emailed yet.':(wm.status==='sent'?('Winner emailed '+timeOf(wm.sentAt)+'.'):(wm.status==='failed'?('Winner email failed: '+(wm.error||'')):'Winner email queued…'))}
-  if(S.revealedAt!==d.drawnAt){S.revealedAt=d.drawnAt;if(S.sawOpen&&!reduceMotion)spin(d.ticket);else $('w-ticket').textContent='#'+d.ticket}
+  renderStage();
+  if(S.revealedAt!==d.drawnAt){S.revealedAt=d.drawnAt;if(S.sawOpen&&!reduceMotion)spin(d.ticket);else{$('w-ticket').textContent='#'+d.ticket;$('st-win').textContent='#'+d.ticket}}
 }
 function spin(finalNum){
-  var el=$('w-ticket');var maxN=Math.max(finalNum,(S.raffle&&S.raffle.next?S.raffle.next-1:0),9);
+  var els=[$('w-ticket'),$('st-win')];var maxN=Math.max(finalNum,(S.raffle&&S.raffle.next?S.raffle.next-1:0),9);
   var start=performance.now(),dur=2800,last=0;
-  function step(now){var t=Math.min(1,(now-start)/dur);var interval=30+t*t*260;if(now-last>=interval){el.textContent='#'+(1+randomInt(maxN));last=now}if(t<1)requestAnimationFrame(step);else el.textContent='#'+finalNum}
+  function show(txt){els.forEach(function(e){e.textContent=txt})}
+  function step(now){var t=Math.min(1,(now-start)/dur);var interval=30+t*t*260;if(now-last>=interval){show('#'+(1+randomInt(maxN)));last=now}if(t<1)requestAnimationFrame(step);else show('#'+finalNum)}
   requestAnimationFrame(step);
 }
 function renderSettings(){
@@ -688,7 +718,29 @@ function renderFooter(){
   var f=$('footer');if(!S.config){f.textContent='';return}
   f.textContent=[S.config.licence,S.config.eventDate].filter(Boolean).join(' · ');
 }
-function applyStage(){document.body.classList.toggle('stage',S.stage);$('stage-btn').textContent=S.stage?'Exit stage view':'Stage view';renderWinner()}
+var wakeLock=null,idleTimer=null;
+function keepAwake(){try{if(S.stage&&navigator.wakeLock&&!wakeLock&&!document.hidden){navigator.wakeLock.request('screen').then(function(l){wakeLock=l;l.addEventListener('release',function(){wakeLock=null})}).catch(function(){})}}catch(e){}}
+function releaseWake(){try{if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
+function pokeIdle(){document.body.classList.remove('idle');clearTimeout(idleTimer);if(S.stage)idleTimer=setTimeout(function(){document.body.classList.add('idle')},3500)}
+function applyStage(){
+  document.body.classList.toggle('stage',S.stage);
+  $('stage-btn').textContent=S.stage?'Exit stage view':'Stage view';
+  if(S.stage){keepAwake();pokeIdle()}else{releaseWake();document.body.classList.remove('idle');clearTimeout(idleTimer);if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(function(){})}
+  renderWinner();renderStage();
+}
+function toggleFullscreen(){
+  try{
+    if(document.fullscreenElement){if(document.exitFullscreen)document.exitFullscreen().catch(function(){});return}
+    var el=document.documentElement;var req=el.requestFullscreen||el.webkitRequestFullscreen;
+    if(req){var r=req.call(el,{navigationUI:'hide'});if(r&&r.catch)r.catch(function(){toast('Full screen was blocked. Use the browser’s own full-screen shortcut (F11 or Ctrl+Cmd+F).',5000)})}
+    else toast('Use the browser’s full-screen shortcut (F11 or Ctrl+Cmd+F).',5000);
+  }catch(e){}
+}
+document.addEventListener('fullscreenchange',function(){renderStage()});
+document.addEventListener('mousemove',pokeIdle);document.addEventListener('keydown',pokeIdle);document.addEventListener('touchstart',pokeIdle,{passive:true});
+$('st-full').onclick=toggleFullscreen;
+$('st-exit').onclick=function(){S.stage=false;try{localStorage.setItem('stage','0')}catch(e){}applyStage()};
+document.addEventListener('keydown',function(ev){if(S.stage&&(ev.key==='f'||ev.key==='F')&&!ev.metaKey&&!ev.ctrlKey&&!/INPUT|TEXTAREA|SELECT/.test((ev.target&&ev.target.tagName)||''))toggleFullscreen()});
 
 /* ---------- modal ---------- */
 var modalCb=null;
@@ -798,7 +850,7 @@ $('export-btn').href=TOKEN?('/s/'+TOKEN+'/export.csv'):'/app/export.csv';
 updateSummary();
 try{if(location.hash==='#stage'||localStorage.getItem('stage')==='1')S.stage=true}catch(e){}
 applyStage();
-document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
+document.addEventListener('visibilitychange',function(){if(!document.hidden){poll();keepAwake()}});
 poll();
 })();
 </script>
